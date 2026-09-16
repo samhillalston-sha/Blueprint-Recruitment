@@ -1,0 +1,2 @@
+import Link from "next/link";
+export default function NotFound() { return <main className="mx-auto max-w-lg px-6 py-24"><span className="eyebrow text-primary">404 / Blueprint Recruiting</span><h1 className="mt-4 text-3xl font-semibold">This page isn’t on the blueprint.</h1><p className="mt-4 text-sm text-muted-foreground">The page you requested doesn’t exist.</p><Link href="/dashboard" className="mt-6 inline-block text-sm font-semibold text-primary underline underline-offset-4">Back to dashboard</Link></main>; }
