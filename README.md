@@ -30,9 +30,12 @@ npm run dev
 npm run test
 npm run typecheck
 npm run build
+npm run test:runtime
 ```
 
 See [setup](docs/SETUP.md) for hosted database and Auth steps, and [verification](docs/VERIFICATION.md) for the latest test results and limits.
+
+The runtime suite requires a completed production build. It runs the real Next.js server against synthetic, isolated Auth/database fixtures; no credentials or real emails are required. GitHub Actions repeats these checks on pushes and pull requests.
 
 ## Hosting
 

@@ -36,7 +36,11 @@ set local role authenticated;
 do $$ begin
   if (select count(*) from public.profiles) <> 1 then raise exception 'Leadership may read only own profile'; end if;
   if (select count(*) from public.seasons) <> 2 then raise exception 'Active leadership must see both seasons'; end if;
-  if has_function_privilege(current_user, 'private.bootstrap_profile()', 'EXECUTE') then raise exception 'Trigger function must not be callable'; end if;
+  begin
+    perform private.bootstrap_profile();
+    raise exception 'Trigger function must not be callable';
+  exception when insufficient_privilege then null;
+  end;
   begin
     update public.profiles set is_active = false;
     raise exception 'Client profile update must fail';
