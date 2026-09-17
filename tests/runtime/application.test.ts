@@ -518,15 +518,20 @@ test("hydrated browser saves workflow, displays attributed activity and preserve
    'select select[name="priority"] High',
    'select select[name="owner_id"] '+ownerId,
    'fill textarea[name="next_action"] "Synthetic browser follow-up"',
-   'fill input[name="follow_up_date"] 2027-02-01',
    'fill textarea[name="projection_year_one"] "Synthetic browser year one"',
    'fill textarea[name="projection_year_two"] "Synthetic browser year two"',
-   'fill textarea[name="projection_year_three"] "Synthetic browser year three"',
-   'find role button click --name "Save recruiting details"');
+   'fill textarea[name="projection_year_three"] "Synthetic browser year three"');
+  // Native calendar inputs use an ISO value; text typing can clear the date.
+  await browser("eval",`(()=>{const input=document.querySelector('input[name="follow_up_date"]');input.value='2027-02-01';input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+  assert.match(await browser("get","value",'input[name="follow_up_date"]'),/2027-02-01/);
+  await browser("find","role","button","click","--name","Save recruiting details");
   await browser("wait","--text","Synthetic browser year three");
   const saved=await browser("snapshot");
   for(const text of ["Synthetic browser follow-up","Synthetic browser year one","Synthetic browser year two","Synthetic browser year three","Recruiting workflow updated","Synthetic Captain","Synthetic Owner"])assert.ok(saved.includes(text),text);
-  assert.equal(memberships.find(row=>row.prospect_id===syntheticId&&row.season_id===seasons[0].id)?.stage,"Confirmed for Tryouts");
+  const savedRecord=memberships.find(row=>row.prospect_id===syntheticId&&row.season_id===seasons[0].id)!;
+  const expected={stage:"Confirmed for Tryouts",priority:"High",owner_id:ownerId,next_action:"Synthetic browser follow-up",follow_up_date:"2027-02-01",projection_year_one:"Synthetic browser year one",projection_year_two:"Synthetic browser year two",projection_year_three:"Synthetic browser year three"};
+  for(const [field,value] of Object.entries(expected))assert.equal(savedRecord[field],value,field);
+  assert.match(await browser("get","value",'input[name="follow_up_date"]'),/2027-02-01/);
   const desktop=resolve(".qa/phase3-profile-desktop.png");
   await browser("screenshot",desktop,"--full");assert.ok((await stat(desktop)).size>0);
   await browser("open",appOrigin+"/prospects?season=2027");
