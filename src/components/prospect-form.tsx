@@ -3,11 +3,10 @@ import { useActionState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { normalizeName, type Prospect, type ProspectFormState } from "@/lib/prospect-policy";
-import { saveProspect, addToSeason } from "@/app/(workspace)/prospects/actions";
+import { normalizeName, type Prospect, type ProspectFormState, type ProspectAction } from "@/lib/prospect-policy";
 
-export function ProspectForm({ prospect, seasonId, year }: { prospect?: Prospect; seasonId: string; year: number }) {
- const [state, action, pending] = useActionState(saveProspect.bind(null, prospect?.id ?? null, seasonId), {} as ProspectFormState, (prospect ? "/prospects/" + prospect.id + "/edit" : "/prospects/new") + "?season=" + year);
+export function ProspectForm({ prospect, saveAction, year }: { prospect?: Prospect; saveAction: ProspectAction; year: number }) {
+ const [state, action, pending] = useActionState(saveAction, {} as ProspectFormState, (prospect ? "/prospects/" + prospect.id + "/edit" : "/prospects/new") + "?season=" + year);
  const fields = [
   ["full_name","Full name","text",120], ["email","Email","email",254], ["phone","Phone","tel",40],
   ["social_url","Social / profile link","url",500], ["location","Location","text",120], ["teams","Current / previous teams","text",500],
@@ -31,7 +30,7 @@ export function ProspectForm({ prospect, seasonId, year }: { prospect?: Prospect
    <Button asChild variant="outline"><Link href={prospect ? "/prospects/" + prospect.id + "?season=" + year : "/prospects?season=" + year}>Cancel</Link></Button></div>
  </form>;
 }
-export function AddToSeason({ prospectId, seasonId }: { prospectId: string; seasonId: string }) {
- const [state, action, pending] = useActionState(addToSeason.bind(null,prospectId,seasonId), {} as ProspectFormState);
+export function AddToSeason({ addAction }: { addAction: ProspectAction }) {
+ const [state, action, pending] = useActionState(addAction, {} as ProspectFormState);
  return <form action={action}><Button type="submit" disabled={pending}>{pending ? "Adding…" : "Add to this season"}</Button>{state.error && <p role="alert" className="mt-3 text-sm text-red-700">{state.error}</p>}</form>;
 }

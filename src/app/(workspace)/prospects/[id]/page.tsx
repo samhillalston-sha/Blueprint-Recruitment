@@ -6,6 +6,7 @@ import { getSeasons } from "@/lib/seasons";
 import { selectSeason } from "@/lib/season-policy";
 import { getProspect } from "@/lib/prospects";
 
+import { addToSeason } from "../actions";
 export const metadata = { title: "Prospect profile" };
 export default async function ProspectProfile({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ season?: string }> }) {
  const { client } = await requireLeadership();
@@ -30,7 +31,7 @@ export default async function ProspectProfile({ params, searchParams }: { params
   </section>
   <section className="panel"><div className="section-heading"><h2>Season history</h2></div><div className="space-y-4 p-6">
    <p className="text-sm">{inSeason ? "Included in " : "Not included in "}{season?.name ?? "a selected season"}.</p>
-   {!inSeason && season?.status === "active" && <AddToSeason prospectId={person.id} seasonId={season.id} />}
+   {!inSeason && season?.status === "active" && <AddToSeason addAction={addToSeason.bind(null,person.id,season.id)} />}
    <ul className="space-y-3">{seasons.filter(item => memberships.some(row => row.season_id === item.id)).map(item => <li key={item.id}><Link className="text-sm font-semibold text-primary underline" href={"/prospects/" + person.id + "?season=" + item.year}>{item.name}</Link><span className="ml-3 text-xs text-muted-foreground">{item.status === "closed" ? "Historical" : "Active"}</span></li>)}</ul>
    {!memberships.length && <p className="text-sm text-muted-foreground">No season records yet.</p>}
   </div></section>

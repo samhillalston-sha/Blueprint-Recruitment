@@ -27,3 +27,5 @@ export function parseProspect(form: FormData) {
 }
 export function escapeSearch(value: string) { return value.replace(/[\\%_]/g, "\\$&"); }
 export const isUuid = (value: string) => z.uuid().safeParse(value).success;
+
+export type ProspectAction = (previous: ProspectFormState, form: FormData) => Promise<ProspectFormState>;
