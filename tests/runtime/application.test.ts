@@ -163,7 +163,12 @@ before(async () => {
   throw Error(`Next.js startup timed out: ${logs}`);
 });
 after(async () => {
-  if (app && app.exitCode === null) { const stopped = once(app, "exit"); app.kill("SIGTERM"); await stopped; }
+  if (app && app.exitCode === null) {
+    const stopped = once(app, "exit");
+    app.kill("SIGTERM");
+    const timer = setTimeout(() => app.kill("SIGKILL"), 5000);
+    try { await stopped; } finally { clearTimeout(timer); }
+  }
   if (fixture) await close(fixture);
 });
 
