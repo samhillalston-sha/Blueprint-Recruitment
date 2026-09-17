@@ -305,7 +305,7 @@ async function submitProspect(path: string, values: Record<string,string>, kind:
  const html = await (await get(path,"active")).text();
  const form = formFromHtml(html,'name="full_name"');
  Object.entries(values).forEach(([key,value])=>form.set(key,value));
- return fetch(appOrigin+path,{method:"POST",body:form,redirect:"manual",signal:AbortSignal.timeout(15000),headers:{Cookie:sessionCookie(kind),Origin:appOrigin}});
+ try { return await fetch(appOrigin+path,{method:"POST",body:form,redirect:"manual",signal:AbortSignal.timeout(15000),headers:{Cookie:sessionCookie(kind),Origin:appOrigin}}); } catch (error) { throw new Error("Action POST stalled: " + path + "\n" + logs.slice(-6000), {cause:error}); }
 }
 test("prospect list, facts, profile and season history render; invalid profiles are 404",async()=>{
  const list = await (await get("/prospects","active")).text();

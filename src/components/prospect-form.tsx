@@ -7,7 +7,7 @@ import { normalizeName, type Prospect, type ProspectFormState } from "@/lib/pros
 import { saveProspect, addToSeason } from "@/app/(workspace)/prospects/actions";
 
 export function ProspectForm({ prospect, seasonId, year }: { prospect?: Prospect; seasonId: string; year: number }) {
- const [state, action, pending] = useActionState(saveProspect.bind(null, prospect?.id ?? null, seasonId), {} as ProspectFormState);
+ const [state, action, pending] = useActionState(saveProspect.bind(null, prospect?.id ?? null, seasonId), {} as ProspectFormState, (prospect ? "/prospects/" + prospect.id + "/edit" : "/prospects/new") + "?season=" + year);
  const fields = [
   ["full_name","Full name","text",120], ["email","Email","email",254], ["phone","Phone","tel",40],
   ["social_url","Social / profile link","url",500], ["location","Location","text",120], ["teams","Current / previous teams","text",500],
