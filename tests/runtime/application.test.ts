@@ -351,3 +351,34 @@ test("prospect provider failure produces an error rather than an empty database"
  try { const response=await get("/prospects","active"); const html=await response.text(); assert.doesNotMatch(html,/No prospect records yet/); assert.match(html,/Something|try again|error|unavailable/i); }
  finally { prospectUnavailable=false; }
 });
+
+test("same-name override and edit duplicate checks require explicit confirmation",async()=>{
+ const originalPeople=[...people];const originalMemberships=[...memberships];
+ try {
+  const before=prospectWrites;
+  const response=await submitProspect("/prospects/new",{full_name:"Synthetic Prospect",confirm_duplicate:"synthetic prospect"});
+  assert.equal(response.status,303);
+  assert.equal(prospectWrites,before+1);
+  const edit=await submitProspect("/prospects/"+syntheticId+"/edit",{full_name:"Synthetic Renamed Player"});
+  assert.equal(edit.status,200);
+  assert.match(await edit.text(),/This name already exists/);
+  assert.equal(prospectWrites,before+1);
+ } finally {people=originalPeople;memberships=originalMemberships;}
+});
+test("existing profile is reused in another season without creating a person",async()=>{
+ const beforeMemberships=[...memberships];
+ const beforePeople=people.length;
+ memberships=memberships.filter(row=>row.prospect_id!==syntheticId);
+ memberships.push({id:"synthetic-old",prospect_id:syntheticId,season_id:seasons[1].id,created_at:"2026-09-17T00:00:00Z"});
+ try {
+  const path="/prospects/"+syntheticId+"?season=2027";
+  const html=await (await get(path,"active")).text();
+  const form=formFromHtml(html,"Add to this season");
+  const response=await fetch(appOrigin+path,{method:"POST",body:form,redirect:"manual",headers:{Cookie:sessionCookie("active"),Origin:appOrigin}});
+  assert.equal(response.status,303);
+  assert.equal(people.length,beforePeople);
+  const profile=await (await get(path,"active")).text();
+  assert.match(profile,/Included in/);
+  assert.equal(memberships.filter(row=>row.prospect_id===syntheticId).length,2);
+ } finally {memberships=beforeMemberships;}
+});

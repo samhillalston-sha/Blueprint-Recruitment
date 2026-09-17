@@ -10,7 +10,8 @@ test("name required; unknown facts stay null rather than becoming invented attri
  for (const key of ["email","phone","social_url","location","teams","age","height_cm","position"] as const) assert.equal(parsed.data[key],null);
 });
 test("reject invalid facts and unsafe links", () => {
- for (const values of [{position:"Hybrid"},{age:"15"},{age:"20.5"},{height_cm:"251"},{social_url:"javascript:alert(1)"},{email:"broken"},{full_name:"x".repeat(121)}]) {
+ const invalid: Record<string,string>[] = [{position:"Hybrid"},{age:"15"},{age:"20.5"},{height_cm:"251"},{social_url:"javascript:alert(1)"},{email:"broken"},{full_name:"x".repeat(121)}];
+ for (const values of invalid) {
   assert.equal(parseProspect(form({full_name:"Synthetic Player",...values})).success,false);
  }
  assert.equal(parseProspect(form({full_name:"Synthetic Player",position:"Handler",age:"29",height_cm:"182",social_url:"https://example.com/synthetic"})).success,true);
