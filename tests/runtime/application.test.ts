@@ -1,8 +1,10 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { createServer, type Server } from "node:http";
-import { spawn, type ChildProcess } from "node:child_process";
+import { execFile, spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
+import { promisify } from "node:util";
+import { mkdir } from "node:fs/promises";
 
 // Isolated synthetic Supabase HTTP fixture, not an application auth bypass.
 // Production identity validation and profiles queries run unchanged.
@@ -16,8 +18,21 @@ const seasons = [
   { id: "eeeeeeee-eeee-4eee-aeee-eeeeeeeeeeee", name: "2026 Season", year: 2026, is_current: false, status: "closed" },
 ];
 const syntheticId = "ffffffff-ffff-4fff-afff-ffffffffffff";
+const syntheticCandidacyId = "99999999-9999-4999-a999-999999999999";
+const ownerId = "88888888-8888-4888-a888-888888888888";
+const workflowDefaults = {stage:"Unknown Prospect",priority:null,owner_id:null,next_action:null,follow_up_date:null,projection_year_one:null,projection_year_two:null,projection_year_three:null,version:1,updated_at:"2026-09-17T00:00:00Z"};
+function membership(values: Record<string,unknown>) { return {...workflowDefaults,id:syntheticCandidacyId,prospect_id:syntheticId,season_id:seasons[0].id,created_at:"2026-09-17T00:00:00Z",...values}; }
 let people = [{ id: syntheticId, full_name: "Synthetic Prospect", normalized_name: "synthetic prospect", email: null, phone: null, social_url: null, location: "Synthetic City", teams: null, age: null, height_cm: null, position: null, created_at: "2026-09-17T00:00:00Z", updated_at: "2026-09-17T00:00:00Z" }] as Array<Record<string, unknown>>;
-let memberships = [{ id: "synthetic-candidacy", prospect_id: syntheticId, season_id: seasons[0].id, created_at: "2026-09-17T00:00:00Z" }];
+let memberships = [membership({})] as Array<Record<string,unknown>>;
+let activity = [] as Array<Record<string,unknown>>;
+let activityUnavailable = false;
+let directoryUnavailable = false;
+let workflowWrites = 0;
+function recordActivity(personId: unknown, seasonId: unknown, type: string, before: Record<string,unknown>, after: Record<string,unknown>, fields: string[]) {
+ const changes=Object.fromEntries(fields.filter(key=>(before[key]??null)!==(after[key]??null)).map(key=>[key,{from:before[key]??null,to:after[key]??null,...(key==="owner_id"?{from_label:before[key]?"Synthetic Owner":null,to_label:after[key]?"Synthetic Owner":null}:{})}]));
+ if(type.endsWith("updated") && !Object.keys(changes).length)return;
+ activity.unshift({id:String(activity.length+1),prospect_id:personId,season_id:seasonId??null,actor_name:"Synthetic Captain",event_type:type,created_at:new Date().toISOString(),changes});
+}
 let prospectUnavailable = false;
 let prospectWrites = 0;
 let fixture: Server;
@@ -95,35 +110,56 @@ before(async () => {
         if (filter?.startsWith("neq.")) rows = rows.filter(row => row[key] !== filter.slice(4));
       }
       const seasonFilter = url.searchParams.get("candidacies.season_id");
-      if (seasonFilter) rows = rows.filter(row => memberships.some(m => m.prospect_id === row.id && m.season_id === seasonFilter.slice(3)));
+      if (seasonFilter && url.searchParams.get("select")?.includes("!inner")) rows = rows.filter(row => memberships.some(m => m.prospect_id === row.id && m.season_id === seasonFilter.slice(3)));
       const search = url.searchParams.get("full_name");
       if (search?.startsWith("ilike.")) rows = rows.filter(row => String(row.full_name).toLowerCase().includes(search.slice(7,-1).toLowerCase()));
       if (request.method === "PATCH") {
         let body=""; request.on("data",chunk=>{body+=String(chunk);}); request.on("end",()=>{
           const values=JSON.parse(body); prospectWrites++;
-          rows.forEach(row=>Object.assign(row,values,{normalized_name:String(values.full_name).trim().replace(/\s+/g," ").toLowerCase()}));
+          rows.forEach(row=>{recordActivity(row.id,null,"prospect_updated",row,values,Object.keys(values));Object.assign(row,values,{normalized_name:String(values.full_name).trim().replace(/\s+/g," ").toLowerCase()});});
           response.end(JSON.stringify(rows.map(row=>({id:row.id}))));
         }); return;
       }
       response.setHeader("Content-Range", "0-" + Math.max(0,rows.length-1) + "/" + rows.length);
-      response.end(JSON.stringify(rows)); return;
+      response.end(JSON.stringify(rows.map(row=>({...row,candidacies:memberships.filter(m=>m.prospect_id===row.id&&(!seasonFilter||m.season_id===seasonFilter.slice(3)))})))); return;
     }
     if (url.pathname === "/rest/v1/candidacies") {
       if (request.method === "POST") {
         let body="";request.on("data",chunk=>{body+=String(chunk);});request.on("end",()=>{
           const values=JSON.parse(body);prospectWrites++;
-          memberships.push({...values,id:"synthetic-added",created_at:"2026-09-17T00:00:00Z"});response.statusCode=201;response.end("");
+          memberships.push(membership({...values,id:"77777777-7777-4777-a777-777777777777"}));recordActivity(values.prospect_id,values.season_id,"season_added",{},workflowDefaults,["stage"]);response.statusCode=201;response.end("");
         });return;
       }
-      const filter=url.searchParams.get("prospect_id")?.slice(3);
-      response.end(JSON.stringify(memberships.filter(row=>!filter || row.prospect_id===filter)));return;
+      let rows=id===ids.active&&!revoked?[...memberships]:[];
+      for(const key of ["id","prospect_id","season_id","stage","version"]) {const filter=url.searchParams.get(key);if(filter?.startsWith("eq."))rows=rows.filter(row=>String(row[key])===filter.slice(3));}
+      if(request.method==="PATCH") {
+       let body="";request.on("data",chunk=>{body+=String(chunk);});request.on("end",()=>{
+        const values=JSON.parse(body);workflowWrites++;
+        rows.forEach(row=>{const changed=Object.keys(values).some(key=>row[key]!==values[key]);recordActivity(row.prospect_id,row.season_id,"workflow_updated",row,values,Object.keys(values));Object.assign(row,values,{version:Number(row.version)+(changed?1:0)});});
+        response.end(JSON.stringify(rows.map(row=>({id:row.id}))));
+       });return;
+      }
+      response.setHeader("Content-Range","0-"+Math.max(0,rows.length-1)+"/"+rows.length);
+      response.end(request.method==="HEAD"?undefined:JSON.stringify(rows));return;
+    }
+    if(url.pathname==="/rest/v1/rpc/recruiting_leaders") {
+     if(directoryUnavailable){response.statusCode=500;response.end('{"message":"Synthetic directory outage"}');return;}
+     response.end(JSON.stringify([{id:ids.active,full_name:"Synthetic Captain",is_active:true},{id:ownerId,full_name:"Synthetic Owner",is_active:true}]));return;
+    }
+    if(url.pathname==="/rest/v1/prospect_activity") {
+     if(activityUnavailable){response.statusCode=500;response.end('{"message":"Synthetic activity outage"}');return;}
+     const rows=activity.filter(row=>row.prospect_id===url.searchParams.get("prospect_id")?.slice(3));
+     response.setHeader("Content-Range","0-"+Math.max(0,rows.length-1)+"/"+rows.length);
+     const offset=Number(url.searchParams.get("offset")??0);response.end(JSON.stringify(rows.slice(offset,offset+25)));return;
     }
     if (url.pathname === "/rest/v1/rpc/create_prospect") {
       let body="";request.on("data",chunk=>{body+=String(chunk);});request.on("end",()=>{
         const values=JSON.parse(body);prospectWrites++;
         const personId="11111111-1111-4111-a111-111111111111";
-        people.push({...values.p_facts,id:personId,normalized_name:values.p_facts.full_name.trim().replace(/\\s+/g," ").toLowerCase(),created_at:"2026-09-17T00:00:00Z",updated_at:"2026-09-17T00:00:00Z"});
-        memberships.push({id:"synthetic-created",prospect_id:personId,season_id:values.p_season_id,created_at:"2026-09-17T00:00:00Z"});
+        people.push({...values.p_facts,id:personId,normalized_name:values.p_facts.full_name.trim().replace(/\s+/g," ").toLowerCase(),created_at:"2026-09-17T00:00:00Z",updated_at:"2026-09-17T00:00:00Z"});
+        memberships.push(membership({id:"66666666-6666-4666-a666-666666666666",prospect_id:personId,season_id:values.p_season_id}));
+        recordActivity(personId,null,"prospect_created",{},values.p_facts,Object.keys(values.p_facts));
+        recordActivity(personId,values.p_season_id,"season_added",{},workflowDefaults,["stage"]);
         response.end(JSON.stringify(personId));
       });return;
     }
@@ -374,7 +410,7 @@ test("existing profile is reused in another season without creating a person",as
  const beforeMemberships=[...memberships];
  const beforePeople=people.length;
  memberships=memberships.filter(row=>row.prospect_id!==syntheticId);
- memberships.push({id:"synthetic-old",prospect_id:syntheticId,season_id:seasons[1].id,created_at:"2026-09-17T00:00:00Z"});
+ memberships.push(membership({season_id:seasons[1].id}));
  try {
   const path="/prospects/"+syntheticId+"?season=2027";
   const html=await (await get(path,"active")).text();
@@ -386,4 +422,126 @@ test("existing profile is reused in another season without creating a person",as
   assert.match(profile,/Included in/);
   assert.equal(memberships.filter(row=>row.prospect_id===syntheticId).length,2);
  } finally {memberships=beforeMemberships;}
+});
+
+const blankWorkflow={stage:"Unknown Prospect",priority:"",owner_id:"",next_action:"",follow_up_date:"",projection_year_one:"",projection_year_two:"",projection_year_three:""};
+async function workflowForm() {return formFromHtml(await (await get("/prospects/"+syntheticId+"?season=2027","active")).text(),'name="stage"');}
+async function postWorkflow(form:FormData,values:Record<string,string>,kind:keyof typeof ids="active") {
+ Object.entries({...blankWorkflow,...values}).forEach(([key,value])=>form.set(key,value));
+ return fetch(appOrigin+"/prospects/"+syntheticId+"?season=2027",{method:"POST",body:form,redirect:"manual",signal:AbortSignal.timeout(15000),headers:{Cookie:sessionCookie(kind),Origin:appOrigin}});
+}
+test("workflow save persists all seasonal fields, updates pipeline/list and renders attributed before/after activity",async()=>{
+ const response=await postWorkflow(await workflowForm(),{stage:"Known Prospect",priority:"High",owner_id:ownerId,next_action:"Synthetic outreach",follow_up_date:"2027-01-15",projection_year_one:"Synthetic first year",projection_year_two:"Synthetic second year",projection_year_three:"Synthetic third year"});
+ assert.equal(response.status,303);
+ const row=memberships.find(row=>row.prospect_id===syntheticId&&row.season_id===seasons[0].id)!;
+ assert.equal(row.version,2);assert.equal(row.owner_id,ownerId);assert.equal(row.projection_year_three,"Synthetic third year");
+ const html=await(await get("/prospects/"+syntheticId,"active")).text();
+ for(const text of ["Synthetic outreach","Synthetic first year","Synthetic second year","Synthetic third year","Activity timeline","Synthetic Captain","Recruiting workflow updated","Unknown Prospect","Known Prospect","Synthetic Owner"])assert.ok(html.includes(text),text);
+ assert.match(html,/2027.*Year 1/);assert.match(html,/2029.*Year 3/);
+ const list=await(await get("/prospects","active")).text();assert.match(list,/Synthetic outreach/);assert.match(list,/Synthetic Owner/);
+ const dashboard=await(await get("/dashboard","active")).text();assert.match(dashboard,/aria-label="Known Prospect count">1</);
+ const before=activity.length;const version=row.version;
+ const noop=await postWorkflow(await workflowForm(),{stage:"Known Prospect",priority:"High",owner_id:ownerId,next_action:"Synthetic outreach",follow_up_date:"2027-01-15",projection_year_one:"Synthetic first year",projection_year_two:"Synthetic second year",projection_year_three:"Synthetic third year"});
+ assert.equal(noop.status,303);assert.equal(activity.length,before);assert.equal(row.version,version);
+});
+test("historical workflow stays independent and has no edit form",async()=>{
+ const original=[...memberships];memberships.push(membership({id:"55555555-5555-4555-a555-555555555555",season_id:seasons[1].id,stage:"Confirmed for Tryouts",priority:"Low",projection_year_one:"Synthetic historical outlook"}));
+ try{
+  const html=await(await get("/prospects/"+syntheticId+"?season=2026","active")).text();
+  assert.match(html,/Historical.*Read-only/);assert.match(html,/Synthetic historical outlook/);assert.match(html,/Confirmed for Tryouts/);
+  assert.doesNotMatch(html,/name="stage"|Save recruiting details/);
+  const panel=html.match(/<section class="panel"><div class="section-heading"><h2>Recruiting workflow[\s\S]*?<\/section>/)?.[0];
+  assert.ok(panel);assert.doesNotMatch(panel,/Synthetic first year/);
+  assert.equal(memberships.find(row=>row.season_id===seasons[0].id&&row.prospect_id===syntheticId)?.stage,"Known Prospect");
+ }finally{memberships=original;}
+});
+test("stale workflow actions preserve another leader's edit",async()=>{
+ const form=await workflowForm();const row=memberships.find(row=>row.prospect_id===syntheticId&&row.season_id===seasons[0].id)!;
+ row.version=Number(row.version)+1;row.next_action="Synthetic concurrent edit";const before=workflowWrites;
+ const response=await postWorkflow(form,{next_action:"Would overwrite"});assert.equal(response.status,200);
+ assert.match(await response.text(),/Another leader updated this record/);assert.equal(workflowWrites,before);assert.equal(row.next_action,"Synthetic concurrent edit");
+});
+test("invalid workflow dates and non-approved owners cannot write",async()=>{
+ const before=workflowWrites;
+ for(const values of [{follow_up_date:"2026-02-30"},{owner_id:ids.inactive},{stage:"Rostered"}] as Record<string,string>[]) {
+  const response=await postWorkflow(await workflowForm(),values);assert.equal(response.status,200);assert.match(await response.text(),/role="alert"/);
+ }
+ assert.equal(workflowWrites,before);
+});
+test("captured workflow action is denied after leadership revocation or season closure",async()=>{
+ const form=await workflowForm();const before=workflowWrites;
+ const inactive=await postWorkflow(form,{next_action:"Forbidden"},"inactive");assert.equal(new URL(inactive.headers.get("location")!,appOrigin).pathname,"/login");
+ revoked=true;
+ try{const denied=await postWorkflow(form,{next_action:"Forbidden"});assert.equal(new URL(denied.headers.get("location")!,appOrigin).pathname,"/login");}finally{revoked=false;}
+ seasons[0].status="closed";
+ try{const closed=await postWorkflow(form,{next_action:"Forbidden"});assert.equal(closed.status,200);assert.match(await closed.text(),/Historical seasons are read-only/);}finally{seasons[0].status="active";}
+ assert.equal(workflowWrites,before);
+});
+test("directory and timeline failures show errors instead of invented empty data",async()=>{
+ for(const source of ["directory","activity"]) {
+  directoryUnavailable=source==="directory";activityUnavailable=source==="activity";
+  try{const html=await(await get("/prospects/"+syntheticId,"active")).text();assert.doesNotMatch(html,/No recorded activity yet/);assert.match(html,/Something|try again|error|unavailable/i);}
+  finally{directoryUnavailable=false;activityUnavailable=false;}
+ }
+});
+test("activity pagination preserves season context and distinguishes an out-of-range page from no history",async()=>{
+ const original=[...activity];
+ for(let i=0;i<30;i++)recordActivity(syntheticId,seasons[0].id,"workflow_updated",{next_action:"Synthetic previous "+i},{next_action:"Synthetic next "+i},["next_action"]);
+ try{
+  const first=await(await get("/prospects/"+syntheticId+"?season=2027","active")).text();assert.match(first,/activityPage=2/);
+  const second=await(await get("/prospects/"+syntheticId+"?season=2027&activityPage=2","active")).text();assert.match(second,/Page <!-- -->2/);assert.match(second,/season=2027&amp;activityPage=1/);assert.match(second,/Synthetic Captain/);
+  const empty=await(await get("/prospects/"+syntheticId+"?season=2027&activityPage=100","active")).text();assert.match(empty,/No activity on this page/);assert.doesNotMatch(empty,/No recorded activity yet/);
+ }finally{activity=original;}
+});
+
+// Hosted CI runs this when local sandbox socket restrictions prevent Chrome.
+// Same isolated provider; no real Google login, credentials, or app auth bypass.
+test("hydrated browser saves workflow, displays attributed activity and preserves historical/mobile views",{skip:process.env.BLUEPRINT_BROWSER_QA!=="1",timeout:120_000},async()=>{
+ const run=promisify(execFile);
+ const browser=async(...args:string[])=>{
+  const result=await run("npx",["--yes","agent-browser@0.38.1",...args],{env:{...process.env,AGENT_BROWSER_SESSION:"blueprint-phase3-ci"},timeout:40_000,maxBuffer:2_000_000});
+  return result.stdout;
+ };
+ const original=memberships.map(row=>({...row}));
+ memberships.push(membership({id:"55555555-5555-4555-a555-555555555555",season_id:seasons[1].id,stage:"Confirmed for Tryouts",projection_year_one:"Synthetic historical browser outlook"}));
+ await mkdir(".qa",{recursive:true});
+ try{
+  await browser("open",appOrigin+"/login");
+  const cookie=sessionCookie("active");const separator=cookie.indexOf("=");
+  await browser("cookies","set",cookie.slice(0,separator),cookie.slice(separator+1),"--url",appOrigin);
+  await browser("open",appOrigin+"/prospects/"+syntheticId+"?season=2027");
+  await browser("wait",'select[name="stage"]');
+  const initial=await browser("snapshot","-i");assert.match(initial,/Save recruiting details/);
+  await browser("batch","--bail",
+   'select select[name="stage"] "Confirmed for Tryouts"',
+   'select select[name="priority"] High',
+   'select select[name="owner_id"] '+ownerId,
+   'fill textarea[name="next_action"] "Synthetic browser follow-up"',
+   'fill input[name="follow_up_date"] 2027-02-01',
+   'fill textarea[name="projection_year_one"] "Synthetic browser year one"',
+   'fill textarea[name="projection_year_two"] "Synthetic browser year two"',
+   'fill textarea[name="projection_year_three"] "Synthetic browser year three"',
+   'find role button click --name "Save recruiting details"');
+  await browser("wait","--text","Synthetic browser year three");
+  const saved=await browser("snapshot");
+  for(const text of ["Synthetic browser follow-up","Synthetic browser year one","Synthetic browser year two","Synthetic browser year three","Recruiting workflow updated","Synthetic Captain","Synthetic Owner"])assert.ok(saved.includes(text),text);
+  assert.equal(memberships.find(row=>row.prospect_id===syntheticId&&row.season_id===seasons[0].id)?.stage,"Confirmed for Tryouts");
+  await browser("screenshot",".qa/phase3-profile-desktop.png","--full");
+  await browser("open",appOrigin+"/prospects?season=2027");
+  assert.match(await browser("snapshot"),/Synthetic browser follow-up/);
+  await browser("open",appOrigin+"/dashboard?season=2027");
+  assert.match(await browser("get","text",'[aria-label="Confirmed for Tryouts count"]'),/1/);
+  await browser("open",appOrigin+"/prospects/"+syntheticId+"?season=2026");
+  assert.match(await browser("snapshot"),/Synthetic historical browser outlook/);
+  assert.doesNotMatch(await browser("snapshot","-i"),/Save recruiting details/);
+  await browser("set","viewport","390","844");
+  await browser("open",appOrigin+"/prospects/"+syntheticId+"?season=2027");
+  await browser("screenshot",".qa/phase3-profile-mobile.png","--full");
+  const layout=JSON.parse(await browser("eval","({width:innerWidth,scrollWidth:document.documentElement.scrollWidth})","--json"));
+  const dimensions=layout.data.result;assert.ok(dimensions.scrollWidth<=dimensions.width+1,JSON.stringify(dimensions));
+  const report=JSON.parse(await browser("errors","--json"));assert.deepEqual(report.data.errors,[]);
+  const consoleLog=await browser("console");assert.doesNotMatch(consoleLog,/hydration|Minified React|Uncaught/i,consoleLog);
+ }finally{
+  memberships=original;await browser("close");
+ }
 });
