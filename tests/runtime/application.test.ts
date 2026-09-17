@@ -37,7 +37,7 @@ async function listen(server: Server): Promise<number> {
   if (!address || typeof address === "string") throw Error("Missing loopback port");
   return address.port;
 }
-async function close(server: Server) { await new Promise<void>(resolve => server.close(() => resolve())); }
+async function close(server: Server) { server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); }
 function user(id: string) { return { id, email: "synthetic-captain@example.com", aud: "authenticated", role: "authenticated", app_metadata: {}, user_metadata: { is_active: true }, created_at: "2026-01-01T00:00:00Z" }; }
 function session(kind: keyof typeof ids) {
   const now = Math.floor(Date.now() / 1000);
@@ -47,7 +47,7 @@ function session(kind: keyof typeof ids) {
 }
 function sessionCookie(kind: keyof typeof ids): string { return `sb-127-auth-token=base64-${Buffer.from(JSON.stringify(session(kind))).toString("base64url")}`; }
 async function get(path: string, kind?: keyof typeof ids, extraHeaders: Record<string, string> = {}) {
-  return fetch(`${appOrigin}${path}`, { redirect: "manual", headers: { ...(kind ? { Cookie: sessionCookie(kind) } : {}), ...extraHeaders } });
+  return fetch(`${appOrigin}${path}`, { redirect: "manual", signal: AbortSignal.timeout(15000), headers: { ...(kind ? { Cookie: sessionCookie(kind) } : {}), ...extraHeaders } });
 }
 function formFromHtml(html: string, field: string): FormData {
   const form = [...html.matchAll(/<form\b[^>]*>([\s\S]*?)<\/form>/g)].find(match => match[1].includes(field));
@@ -101,7 +101,7 @@ before(async () => {
       if (request.method === "PATCH") {
         let body=""; request.on("data",chunk=>{body+=String(chunk);}); request.on("end",()=>{
           const values=JSON.parse(body); prospectWrites++;
-          rows.forEach(row=>Object.assign(row,values,{normalized_name:String(values.full_name).trim().replace(/\\s+/g," ").toLowerCase()}));
+          rows.forEach(row=>Object.assign(row,values,{normalized_name:String(values.full_name).trim().replace(/\s+/g," ").toLowerCase()}));
           response.end(JSON.stringify(rows.map(row=>({id:row.id}))));
         }); return;
       }
@@ -300,7 +300,7 @@ async function submitProspect(path: string, values: Record<string,string>, kind:
  const html = await (await get(path,"active")).text();
  const form = formFromHtml(html,'name="full_name"');
  Object.entries(values).forEach(([key,value])=>form.set(key,value));
- return fetch(appOrigin+path,{method:"POST",body:form,redirect:"manual",headers:{Cookie:sessionCookie(kind),Origin:appOrigin}});
+ return fetch(appOrigin+path,{method:"POST",body:form,redirect:"manual",signal:AbortSignal.timeout(15000),headers:{Cookie:sessionCookie(kind),Origin:appOrigin}});
 }
 test("prospect list, facts, profile and season history render; invalid profiles are 404",async()=>{
  const list = await (await get("/prospects","active")).text();
