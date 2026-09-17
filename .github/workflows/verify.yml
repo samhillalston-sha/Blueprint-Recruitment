@@ -28,4 +28,5 @@ jobs:
         with:
           name: synthetic-phase3-browser
           path: .qa/*.png
-          if-no-files-found: ignore
+          if-no-files-found: error
+          include-hidden-files: true
