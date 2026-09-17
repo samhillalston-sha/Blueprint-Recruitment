@@ -1,4 +1,4 @@
-# Setup — existing Google sign-in and Phase 2
+# Setup — existing Google sign-in and Phase 3
 
 ## Existing infrastructure
 
@@ -71,3 +71,18 @@ The additive migration `20260917203540_phase_two_prospect_records.sql` is alread
 - No credentials, real people, or imports are part of the migration.
 
 To reuse a person, browse All people, open their profile in an active season, then Add to this season. Duplicate warnings link to existing profiles. Creating a separate same-name person requires explicit confirmation. Facts are shared across seasons; season history is membership history, not a snapshot of every fact.
+
+## Phase 3 database and workflow
+
+The additive migration `20260917210550_phase_three_recruiting_workflow.sql` is applied on the same existing project. It preserves existing prospect and season records. Do not reapply it. No new infrastructure or application secrets are required.
+
+- `candidacies` now stores stage, optional priority/owner/next action/follow-up date, three qualitative projections, a protected version, and updated timestamp. Client update grants cover only workflow fields; active leadership can edit only active seasons.
+- `recruiting_leaders()` exposes only IDs, display names, and active status to approved leaders. Full profiles and emails remain own-only. The private privileged helper checks current approval. Revoked owners remain available for interpreting existing records; they cannot receive new assignments.
+- `prospect_activity` is read-only to active leadership. Private trigger functions record trusted authorship and field differences in the same transaction as a mutation. Client insert/update/delete and direct trigger execution are denied.
+- Existing candidacies start at Unknown Prospect with unknown optional fields blank. No retrospective events are fabricated. Logging starts when the migration is applied, including writes by the existing Phase 2 forms.
+
+On an active-season profile, save recruiting details. Follow-up dates are calendar dates with UTC status labels, not notifications. Projection labels use the selected season year and the next two years. The activity timeline spans seasons, 25 events per page. Historical workflow fields are read-only.
+
+If another leader edits a candidacy after you open it, saving is rejected. Use Reload profile to review the current record before entering your changes again. Ownership can be cleared or reassigned if a member loses approval; existing ownership history remains intact.
+
+Verify hosted permissions with `tests/database-access.sql`, `tests/phase-two-access.sql`, and `tests/phase-three-access.sql`. All use isolated synthetic fixtures and roll back. Never use real prospect records as test fixtures.

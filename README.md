@@ -2,9 +2,11 @@
 
 A private recruiting workspace for NYC Blueprint leadership. It keeps recruiting memory in one place, with individual Google sign-in and manually approved leadership access.
 
-## Current scope — Phase 2
+## Current scope — Phase 3
 
 Phase 1 is deployed at https://blueprint-recruitment.vercel.app. The user confirmed Google sign-in, manual approval, and dashboard access on September 17, 2026.
+
+Phase 2 is merged, and the user confirmed the deployed prospect screens.
 
 Phase 2 adds:
 - Persistent prospect records and separate season candidacies with RLS and minimal client grants.
@@ -15,7 +17,11 @@ Phase 2 adds:
 
 Closed seasons are read-only in the application. Shared facts reflect the latest person details across years; they are not historical snapshots. Client deletion or reassignment of season records is unavailable.
 
-Recruiting stages, priorities, ownership, next actions, follow-ups, notes, evaluations, outcomes, imports, AI, and tryout/roster management are not implemented. Dashboard pipeline counts remain explicitly unconnected until stages are authorized. Stop before Phase 3.
+Phase 3 adds seasonal stages (Unknown Prospect, Known Prospect, Confirmed for Tryouts), optional High/Medium/Low priority, approved leadership owners, next actions, follow-up dates, and three qualitative year-by-year projections. The prospect list shows the selected season's workflow and the dashboard uses real stage counts.
+
+The profile's paginated activity timeline spans all seasons. Database triggers log creation, season membership, important shared-fact edits, and workflow changes with author, timestamp, season context, and before/after values. No-op edits do not create events. Logging begins with this migration; prior changes are not reconstructed. Version checks prevent stale forms from overwriting another leader's changes.
+
+Notes, manual interaction entries, evaluations, outcomes, imports, AI, and tryout/roster management remain outside scope. Stop before Phase 4.
 
 ## Development and verification
 
