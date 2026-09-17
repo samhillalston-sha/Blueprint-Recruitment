@@ -4,7 +4,8 @@ import { createServer, type Server } from "node:http";
 import { execFile, spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
 import { promisify } from "node:util";
-import { mkdir } from "node:fs/promises";
+import { mkdir, stat } from "node:fs/promises";
+import { resolve } from "node:path";
 
 // Isolated synthetic Supabase HTTP fixture, not an application auth bypass.
 // Production identity validation and profiles queries run unchanged.
@@ -526,7 +527,8 @@ test("hydrated browser saves workflow, displays attributed activity and preserve
   const saved=await browser("snapshot");
   for(const text of ["Synthetic browser follow-up","Synthetic browser year one","Synthetic browser year two","Synthetic browser year three","Recruiting workflow updated","Synthetic Captain","Synthetic Owner"])assert.ok(saved.includes(text),text);
   assert.equal(memberships.find(row=>row.prospect_id===syntheticId&&row.season_id===seasons[0].id)?.stage,"Confirmed for Tryouts");
-  await browser("screenshot",".qa/phase3-profile-desktop.png","--full");
+  const desktop=resolve(".qa/phase3-profile-desktop.png");
+  await browser("screenshot",desktop,"--full");assert.ok((await stat(desktop)).size>0);
   await browser("open",appOrigin+"/prospects?season=2027");
   assert.match(await browser("snapshot"),/Synthetic browser follow-up/);
   await browser("open",appOrigin+"/dashboard?season=2027");
@@ -536,7 +538,8 @@ test("hydrated browser saves workflow, displays attributed activity and preserve
   assert.doesNotMatch(await browser("snapshot","-i"),/Save recruiting details/);
   await browser("set","viewport","390","844");
   await browser("open",appOrigin+"/prospects/"+syntheticId+"?season=2027");
-  await browser("screenshot",".qa/phase3-profile-mobile.png","--full");
+  const mobile=resolve(".qa/phase3-profile-mobile.png");
+  await browser("screenshot",mobile,"--full");assert.ok((await stat(mobile)).size>0);
   const layout=JSON.parse(await browser("eval","({width:innerWidth,scrollWidth:document.documentElement.scrollWidth})","--json"));
   const dimensions=layout.data.result;assert.ok(dimensions.scrollWidth<=dimensions.width+1,JSON.stringify(dimensions));
   const report=JSON.parse(await browser("errors","--json"));assert.deepEqual(report.data.errors,[]);
