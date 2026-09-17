@@ -4,11 +4,17 @@
 
 Leadership needs shared recruiting memory and clear ownership during offseason outreach, not a complex sports management platform. The useful recruiting journey is from first hearing a name to confirming interest in spring tryouts. Everyone ultimately has to try out; attendance confirmation is not a roster offer.
 
-## Phase 1 — implemented foundation only
+## Phase 1 — deployed and user-confirmed
 
 Authentication, leadership access, navigation, branding, seasons, shell screens, tests, setup documentation. No real player import. No operational recruiting claims until subsequent phases are implemented.
 
-## Agreed future recruiting requirements — not implemented here
+## Phase 2 — authorized prospect foundation
+
+Persistent people and separate season memberships; list/search/pagination; create/edit shared facts; duplicate-name warning; profile and season history; reuse an existing person in an active season. No real-data import. Closed season membership is preserved and read-only; shared person facts are current values, not per-year snapshots.
+
+Phase 2 stops before stages, ownership, priorities, next actions, follow-ups, notes, interactions, evaluations, seasonal outcomes, or other Phase 3 workflows. Dashboard pipeline counts remain unconnected.
+
+## Agreed later recruiting requirements — not implemented
 
 - A persistent person/prospect record, with a distinct recruiting candidacy for each season; keep history across years.
 - Stages: Unknown Prospect, Known Prospect, Confirmed for Tryouts.

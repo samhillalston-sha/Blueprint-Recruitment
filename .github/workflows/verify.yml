@@ -1,4 +1,4 @@
-name: Verify Phase 1
+name: Verify Blueprint Recruiting
 on:
   push:
     branches: [main]

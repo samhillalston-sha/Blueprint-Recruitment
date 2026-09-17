@@ -1,36 +1,38 @@
-# Phase 1 verification
+# Verification
 
-Reconstruction date: September 16, 2026.
-Google sign-in update verified: September 17, 2026.
+## Phase 1 baseline
 
-## Passed checks
+The user confirmed the deployed Phase 1 Google sign-in, manual leadership approval, and dashboard access at https://blueprint-recruitment.vercel.app on September 17, 2026. Earlier reports calling these pending are superseded. Other live scenarios such as revocation were not claimed as user-tested.
+
+## Phase 2 — September 17, 2026
+
+The existing repository and hosted profiles/seasons migration were inspected before changes. The additive migration `20260917203540_phase_two_prospect_records.sql` is applied on the existing project.
+
+Hosted `tests/phase-two-access.sql` passed: anonymous/inactive/missing/revoked access denial, active create/read/edit, protected authorship, no history deletion/movement, unique memberships, closed-season membership denial, atomic rollback on failed creation, position/link constraints, and reuse across three seasons. All synthetic fixtures rolled back.
+
+Security advisor: no RLS findings. Auth warning: leaked password protection disabled ([remediation](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)); Google is the approved login method and Auth configuration was not changed. Performance advisor reports unused indexes on new empty tables ([reference](https://supabase.com/docs/guides/database/database-linter?lint=0005_unused_index)); retain useful season and foreign-key indexes.
+
+Application checks passed in [GitHub Actions run 35272674967](https://github.com/samhillalston-sha/Blueprint-Recruitment/actions/runs/35272674967) on code commit `8406f20dc87a38abd00c83698439e0f88abc1add`:
 
 | Check | Result |
 | --- | --- |
-| Fresh install from committed lockfile (`npm ci`) | Passed September 16; dependencies unchanged for Google update |
-| Unit tests (`npm run test`) | 20 passed |
-| TypeScript (`npm run typecheck`) | Passed |
-| Production compilation (`npm run build`) | Passed |
-| Production-server integration (`npm run test:runtime`) | 14 passed |
-| Hosted database role tests (`tests/database-access.sql`) | Passed; synthetic fixtures rolled back |
-| Supabase security/performance advisors | No findings |
-| Production dependency audit (`npm audit --omit=dev`) | No vulnerabilities |
+| npm ci | Passed; audit reported zero vulnerabilities |
+| npm run test | 23 passed |
+| npm run typecheck | Passed |
+| npm run build | Passed |
+| npm run test:runtime | 21 passed |
+| Hosted Phase 1 permission regression | Passed, all fixtures rolled back |
+| Hosted Phase 2 permission checks | Passed, all fixtures rolled back |
 
-Runtime checks start the real production Next.js server against an isolated synthetic Supabase HTTP fixture. Application identity verification, profile lookup, server actions, and route guards run unchanged. Tests cover Google login rendering/security headers, anonymous and file-like private paths, authorized screens, historical/invalid seasons, inactive/missing/revoked leadership, database-provider failures, native Google OAuth initiation with persisted PKCE verifier and canonical callback, account-selection prompt, minimal identity scopes, sign-out, successful/denied code exchange, provider cancellation, and rejection of untrusted redirect targets. The former emailed-token confirmation endpoint is removed and tested as unavailable.
+Runtime integration uses the real production Next.js server with isolated synthetic Supabase HTTP fixtures. It covers existing Google/access behavior plus prospect listing/search, facts/profile/history, invalid and missing profiles, duplicate warnings without writes, explicit same-name confirmation, creation/editing, validation denial, historical read-only screens, inactive captured-action denial, provider failures, and reusing a person across seasons. Stable server-bound actions and a season permalink preserve validation state before JavaScript loads. This session has no local command runner; results come from hosted Actions, not local execution.
 
-Hosted SQL checks ran on the real Blueprint Recruiting project. They verify the Auth profile trigger ignores metadata activation, anonymous reads fail, leadership can read only its own profile, only active leadership sees seasons, client writes and private function calls fail, and invalid season constraints are rejected. Afterwards, the database contained zero leadership profiles, zero synthetic Auth users, and exactly the two configured seasons.
+After hosted SQL tests, prospects, candidacies, and synthetic Phase 2 Auth users each had zero rows. Existing real leadership was preserved. Vercel Git checks reported successful previews on earlier commits; direct connector inspection remains blocked, and no authenticated preview/browser behavior is claimed.
 
-The migration filename is aligned with the version recorded by the hosted migration API (`20260916161318`). Only `profiles` and `seasons` exist in the public application schema; both have RLS enabled.
+## Limits
 
-## Setup and verification limits
-
-- **Browser visual/interaction QA is blocked.** Playwright's Chromium download failed with a proxy 502 and repeated timeouts. No browser screenshot/responsive-layout verification is claimed. Runtime checks establish server behavior, not browser pixel correctness.
-- This environment restricts network-interface inspection. Default `next start` failed while trying to discover a network hostname; the production integration suite successfully starts it with the documented `--hostname 127.0.0.1` option. Server and fixtures run in one test process, avoiding isolated-loopback issues between tool calls.
-- **Live Google sign-in is not verified.** Google Cloud OAuth client creation, Google provider credentials in Supabase, and individual leadership profile approval still require dashboard setup. Connector capabilities do not expose those administrative operations. No purchased domain, custom SMTP provider, or emailed invitation is required for the approved Google workflow.
-- The first build after this change hit an internal Turbopack persistence-cache panic. The previous generated `.next` directory was moved to a temporary recovery folder, not deleted; a clean rebuild succeeded. No source files or user data were lost.
-- **Vercel deployment is pending.** No deployed production URL is available or represented as verified.
-- GitHub Actions is configured to repeat install, unit tests, typecheck, build, and runtime checks without credentials. Its hosted run is not claimed as passed by this local report.
-
-See [setup instructions](SETUP.md). Stop here: Phase 2 is not authorized by this checkpoint.
-
-No production deployment, real Google consent/account login, administrator approval, or prospect workflow is represented as verified. OAuth behavior is tested using synthetic fixtures, not real Google credentials. No Google/Supabase provider settings or actual leadership access were changed by the code update.
+- Vercel connector lists no teams; project inspection returned 403. Existing infrastructure was not recreated or changed. Production Phase 2 deployment is not claimed.
+- No browser is available in this session; visual and interactive browser QA is not claimed.
+- No real prospect data was imported or committed. Tests contain synthetic people only.
+- Shared person facts are current values across all seasons, not historical fact snapshots.
+- Duplicate detection is a warning, not a name uniqueness constraint. Same-name people are permitted; simultaneous writes may race.
+- Phase 3 workflows are excluded. Dashboard pipeline counts remain unconnected.
