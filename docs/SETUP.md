@@ -1,4 +1,4 @@
-# Phase 1 setup — Google sign-in
+# Setup — existing Google sign-in and Phase 2
 
 ## Existing infrastructure
 
@@ -7,7 +7,7 @@
 - Project reference: `ldrdsvsmwnjzhyzqdcdt`.
 - Dashboard: https://supabase.com/dashboard/project/ldrdsvsmwnjzhyzqdcdt
 
-The hosted foundation migration creates only `profiles` and `seasons`, seeds 2026/2027, and defaults all new profiles to inactive. It is already applied; do not apply it twice or modify unrelated projects.
+The hosted Phase 1 migration creates `profiles` and `seasons`, seeds 2026/2027, and defaults all new profiles to inactive. It is already applied; do not apply it twice or modify unrelated projects.
 
 ## No email provider or purchased domain
 
@@ -34,7 +34,7 @@ Use a team-owned Google account to own the Google Cloud/OAuth configuration if d
    This is Supabase's callback, not the application's `/auth/callback` route.
 6. Copy the OAuth client ID and secret directly into [Supabase's Google provider settings](https://supabase.com/dashboard/project/ldrdsvsmwnjzhyzqdcdt/auth/providers), enable Google, and save. Leave nonce verification enabled. These credentials belong in Supabase, not the app's browser bundle, repository, or chat.
 
-The available connectors do not manage Google Cloud OAuth clients or Supabase Auth provider settings. These steps have not been completed by the implementation, so live Google sign-in is not yet verified.
+The available connectors do not manage Google Cloud OAuth clients or Supabase Auth provider settings. The user completed the setup and confirmed live Google sign-in, manual leadership approval, and dashboard access on September 17, 2026. These instructions remain as an onboarding reference.
 
 ## Supabase Auth configuration
 
@@ -50,7 +50,7 @@ The callback ignores user-controlled `next` destinations and uses the configured
 
 Use `SUPABASE_URL`, a modern `SUPABASE_PUBLISHABLE_KEY`, `APP_URL`, and `APP_ENV=private` from `.env.example`. No Google OAuth secret or Supabase service-role key is needed in the application.
 
-For Vercel, connect the repository, choose Next.js, supply those variables, and use the actual generated or custom app origin in Supabase URL settings. Deployment remains pending. Keep public portfolio demos isolated and wholly synthetic.
+For Vercel, connect the repository, choose Next.js, supply those variables, and use the actual generated or custom app origin in Supabase URL settings. Phase 1 is deployed at https://blueprint-recruitment.vercel.app; the user confirmed access. Use its exact origin for APP_URL and its exact /auth/callback URL in the Supabase allow list. Keep public portfolio demos isolated and wholly synthetic.
 
 ## Revocation and final live test
 
@@ -59,3 +59,15 @@ Set a user's profile `is_active=false` to remove their access on subsequent guar
 Before distributing the app, test with an approved individual Google account: provider redirect, consent/account selection, first-sign-in denial, manual approval, successful sign-in, local sign-out, revocation, and access denial for a non-leader. Automated tests use an isolated synthetic provider and do not establish that the real Google client configuration works.
 
 Reference: [Supabase Google sign-in guide](https://supabase.com/docs/guides/auth/social-login/auth-google).
+
+## Phase 2 database
+
+The additive migration `20260917203540_phase_two_prospect_records.sql` is already applied to the same project. Do not recreate infrastructure or reapply migrations.
+
+- `prospects`: shared person facts, normalized name lookup, protected creator, creation/update timestamps.
+- `candidacies`: one unique membership per prospect/season, protected creator and timestamp. Distinct memberships preserve history; records cannot be deleted or moved by ordinary clients.
+- Both tables have RLS; active leadership can read. Only active leadership can write shared person facts or add memberships to active seasons. Column grants exclude authors and timestamps from client writes.
+- `create_prospect` is a security-invoker RPC. Person creation and season membership succeed or roll back together under the caller's RLS policies.
+- No credentials, real people, or imports are part of the migration.
+
+To reuse a person, browse All people, open their profile in an active season, then Add to this season. Duplicate warnings link to existing profiles. Creating a separate same-name person requires explicit confirmation. Facts are shared across seasons; season history is membership history, not a snapshot of every fact.

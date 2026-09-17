@@ -12,9 +12,14 @@ const ids = {
   missing: "cccccccc-cccc-4ccc-cccc-cccccccccccc",
 };
 const seasons = [
-  { id: "2027", name: "2027 Season", year: 2027, is_current: true, status: "active" },
-  { id: "2026", name: "2026 Season", year: 2026, is_current: false, status: "closed" },
+  { id: "dddddddd-dddd-4ddd-addd-dddddddddddd", name: "2027 Season", year: 2027, is_current: true, status: "active" },
+  { id: "eeeeeeee-eeee-4eee-aeee-eeeeeeeeeeee", name: "2026 Season", year: 2026, is_current: false, status: "closed" },
 ];
+const syntheticId = "ffffffff-ffff-4fff-afff-ffffffffffff";
+let people = [{ id: syntheticId, full_name: "Synthetic Prospect", normalized_name: "synthetic prospect", email: null, phone: null, social_url: null, location: "Synthetic City", teams: null, age: null, height_cm: null, position: null, created_at: "2026-09-17T00:00:00Z", updated_at: "2026-09-17T00:00:00Z" }] as Array<Record<string, unknown>>;
+let memberships = [{ id: "synthetic-candidacy", prospect_id: syntheticId, season_id: seasons[0].id, created_at: "2026-09-17T00:00:00Z" }];
+let prospectUnavailable = false;
+let prospectWrites = 0;
 let fixture: Server;
 let app: ChildProcess;
 let appOrigin: string;
@@ -78,7 +83,49 @@ before(async () => {
       response.end(JSON.stringify(row ? [row] : [])); return;
     }
     if (url.pathname === "/rest/v1/seasons") {
-      response.end(JSON.stringify(id === ids.active && !revoked ? seasons : [])); return;
+      const selected = url.searchParams.get("id")?.replace(/^eq\./,"");
+      response.end(JSON.stringify(id === ids.active && !revoked ? seasons.filter(item => !selected || item.id === selected) : [])); return;
+    }
+    if (url.pathname === "/rest/v1/prospects") {
+      if (prospectUnavailable) { response.statusCode=500; response.end('{"message":"Synthetic prospect outage"}'); return; }
+      let rows = id === ids.active && !revoked ? [...people] : [];
+      for (const key of ["id","normalized_name"]) {
+        const filter = url.searchParams.get(key);
+        if (filter?.startsWith("eq.")) rows = rows.filter(row => row[key] === filter.slice(3));
+        if (filter?.startsWith("neq.")) rows = rows.filter(row => row[key] !== filter.slice(4));
+      }
+      const seasonFilter = url.searchParams.get("candidacies.season_id");
+      if (seasonFilter) rows = rows.filter(row => memberships.some(m => m.prospect_id === row.id && m.season_id === seasonFilter.slice(3)));
+      const search = url.searchParams.get("full_name");
+      if (search?.startsWith("ilike.")) rows = rows.filter(row => String(row.full_name).toLowerCase().includes(search.slice(7,-1).toLowerCase()));
+      if (request.method === "PATCH") {
+        let body=""; request.on("data",chunk=>{body+=String(chunk);}); request.on("end",()=>{
+          const values=JSON.parse(body); prospectWrites++;
+          rows.forEach(row=>Object.assign(row,values,{normalized_name:String(values.full_name).trim().replace(/\\s+/g," ").toLowerCase()}));
+          response.end(JSON.stringify(rows.map(row=>({id:row.id}))));
+        }); return;
+      }
+      response.setHeader("Content-Range", "0-" + Math.max(0,rows.length-1) + "/" + rows.length);
+      response.end(JSON.stringify(rows)); return;
+    }
+    if (url.pathname === "/rest/v1/candidacies") {
+      if (request.method === "POST") {
+        let body="";request.on("data",chunk=>{body+=String(chunk);});request.on("end",()=>{
+          const values=JSON.parse(body);prospectWrites++;
+          memberships.push({...values,id:"synthetic-added",created_at:"2026-09-17T00:00:00Z"});response.statusCode=201;response.end("");
+        });return;
+      }
+      const filter=url.searchParams.get("prospect_id")?.slice(3);
+      response.end(JSON.stringify(memberships.filter(row=>!filter || row.prospect_id===filter)));return;
+    }
+    if (url.pathname === "/rest/v1/rpc/create_prospect") {
+      let body="";request.on("data",chunk=>{body+=String(chunk);});request.on("end",()=>{
+        const values=JSON.parse(body);prospectWrites++;
+        const personId="11111111-1111-4111-a111-111111111111";
+        people.push({...values.p_facts,id:personId,normalized_name:values.p_facts.full_name.trim().replace(/\\s+/g," ").toLowerCase(),created_at:"2026-09-17T00:00:00Z",updated_at:"2026-09-17T00:00:00Z"});
+        memberships.push({id:"synthetic-created",prospect_id:personId,season_id:values.p_season_id,created_at:"2026-09-17T00:00:00Z"});
+        response.end(JSON.stringify(personId));
+      });return;
     }
     if (url.pathname === "/auth/v1/logout") { response.statusCode = 204; response.end(); return; }
     if (url.pathname === "/auth/v1/token") {
@@ -140,7 +187,7 @@ test("anonymous users cannot access any private subtree including file-like path
     assert.equal(new URL(response.headers.get("location")!, appOrigin).pathname, "/login", path);
   }
 });
-test("active leadership renders the dashboard, prospect placeholder, and own settings", async () => {
+test("active leadership renders the dashboard, prospect list, and own settings", async () => {
   for (const [path, content] of [["/dashboard", "Your recruiting blueprint"], ["/prospects", "A home for every prospect"], ["/settings", "synthetic-captain@example.com"]]) {
     const response = await get(path, "active");
     assert.equal(response.status, 200, `${path}: ${logs}`);
@@ -247,4 +294,60 @@ test("provider errors cannot be paired with a code to establish a session", asyn
 });
 test("legacy emailed-token confirmation is not an available sign-in route", async () => {
   assert.equal((await get("/auth/confirm?token_hash=active-confirm&type=email")).status, 404);
+});
+
+async function submitProspect(path: string, values: Record<string,string>, kind: keyof typeof ids = "active") {
+ const html = await (await get(path,"active")).text();
+ const form = formFromHtml(html,'name="full_name"');
+ Object.entries(values).forEach(([key,value])=>form.set(key,value));
+ return fetch(appOrigin+path,{method:"POST",body:form,redirect:"manual",headers:{Cookie:sessionCookie(kind),Origin:appOrigin}});
+}
+test("prospect list, facts, profile and season history render; invalid profiles are 404",async()=>{
+ const list = await (await get("/prospects","active")).text();
+ assert.match(list,/Synthetic Prospect/);
+ const profile = await (await get("/prospects/"+syntheticId,"active")).text();
+ assert.match(profile,/Synthetic City/);
+ assert.match(profile,/Season history/);
+ assert.match(profile,/2027 Season/);
+ assert.equal((await get("/prospects/not-a-uuid","active")).status,404);
+ assert.equal((await get("/prospects/22222222-2222-4222-a222-222222222222","active")).status,404);
+ const empty = await (await get("/prospects?season=2026","active")).text();
+ assert.match(empty,/No prospects in this season yet/);
+ const all = await (await get("/prospects?season=2026&view=all","active")).text();
+ assert.match(all,/Synthetic Prospect/);
+ assert.match(await (await get("/prospects?view=all&q=NoMatch","active")).text(),/No prospects match/);
+});
+test("create action warns on duplicate names without writing",async()=>{
+ const before=prospectWrites;
+ const response=await submitProspect("/prospects/new",{full_name:"  SYNTHETIC  Prospect "});
+ assert.equal(response.status,200);
+ assert.match(await response.text(),/This name already exists/);
+ assert.equal(prospectWrites,before);
+});
+test("native create and edit actions persist synthetic facts and redirect to profile",async()=>{
+ const create=await submitProspect("/prospects/new",{full_name:"Synthetic New Player",position:"Cutter",location:"Synthetic Borough"});
+ assert.equal(create.status,303);
+ const path=new URL(create.headers.get("location")!,appOrigin).pathname;
+ assert.match(await (await get(path,"active")).text(),/Synthetic Borough/);
+ const edit=await submitProspect(path+"/edit",{full_name:"Synthetic Renamed Player",position:"Handler"});
+ assert.equal(edit.status,303);
+ assert.match(await (await get(path,"active")).text(),/Synthetic Renamed Player/);
+});
+test("validation and closed seasons prevent writes; inactive identity cannot post a captured action",async()=>{
+ const before=prospectWrites;
+ const invalid=await submitProspect("/prospects/new",{full_name:"Synthetic Invalid",position:"Hybrid"});
+ assert.equal(invalid.status,200);
+ assert.equal(prospectWrites,before);
+ const historical=await (await get("/prospects/new?season=2026","active")).text();
+ assert.match(historical,/Historical seasons are read-only/);
+ assert.doesNotMatch(historical,/name="full_name"/);
+ const inactive=await submitProspect("/prospects/new",{full_name:"Synthetic Forbidden"},"inactive");
+ assert.ok([303,307].includes(inactive.status));
+ assert.equal(new URL(inactive.headers.get("location")!,appOrigin).pathname,"/login");
+ assert.equal(prospectWrites,before);
+});
+test("prospect provider failure produces an error rather than an empty database",async()=>{
+ prospectUnavailable=true;
+ try { const response=await get("/prospects","active"); const html=await response.text(); assert.doesNotMatch(html,/No prospect records yet/); assert.match(html,/Something|try again|error|unavailable/i); }
+ finally { prospectUnavailable=false; }
 });
