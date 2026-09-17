@@ -6,9 +6,9 @@ import { readRuntimeConfig } from "@/lib/config";
 export const dynamic = "force-dynamic";
 const reasons: Record<string, string> = {
   setup: "Workspace setup is still in progress. Sign-in will be available once Supabase is connected.",
-  access: "Your account doesn’t have active leadership access. Ask your workspace administrator to check your invitation.",
+  access: "Your Google account doesn’t have approved leadership access yet. Ask your workspace administrator to approve your individual account.",
   unavailable: "We couldn’t verify your access right now. Please try again shortly.",
-  link: "This sign-in link is invalid or expired. Request a new link below.",
+  oauth: "Google sign-in wasn’t completed or the request expired. Please try again below.",
   "signout-error": "We couldn’t finish signing you out. Please try again, or close this browser and contact your administrator.",
 };
 export default async function Login({ searchParams }: { searchParams: Promise<{ reason?: string }> }) {
@@ -31,7 +31,7 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
         <div className="mb-10 lg:hidden"><Brand /></div>
         <span className="eyebrow text-primary">Blueprint Recruiting</span>
         <h2 className="mt-3 text-3xl font-semibold tracking-tight">Welcome back.</h2>
-        <p className="mt-3 mb-8 text-sm leading-6 text-muted-foreground">Sign in with your invited email address. We’ll send you a secure link—no password needed.</p>
+        <p className="mt-3 mb-8 text-sm leading-6 text-muted-foreground">Sign in with Google to enter your team’s recruiting workspace. No separate password or emailed login link needed.</p>
         {notice && <p role="status" className="mb-6 rounded-md border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-blue-900">{notice}</p>}
         <SignInForm configured={configured} />
         <div className="mt-9 flex gap-2 border-t border-border pt-6 text-xs leading-5 text-muted-foreground"><LockKeyhole size={15} className="mt-0.5 shrink-0" /><p>Private to Blueprint leadership.<br />Need access? Ask your workspace administrator.</p></div>

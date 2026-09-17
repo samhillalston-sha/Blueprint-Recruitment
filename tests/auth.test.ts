@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { evaluateAccess, isProtectedPath, loginReason, type LeadershipProfile } from "../src/lib/auth/policy";
 import { authorizeClient } from "../src/lib/auth/authorize";
-import { confirmationInput, emailSchema, magicLinkOptions } from "../src/lib/auth/sign-in";
+import { googleOAuthOptions, safeGoogleOAuthUrl } from "../src/lib/auth/sign-in";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const profile: LeadershipProfile = { id: "member", full_name: "Demo Captain", email: "captain@example.com", is_active: true };
@@ -36,21 +36,17 @@ test("redirect reasons expose no private details", () => {
   assert.equal(loginReason("denied"), "access");
   assert.equal(loginReason("unavailable"), "unavailable");
 });
-test("email input is validated and normalized", () => {
-  assert.equal(emailSchema.parse(" CAPTAIN@EXAMPLE.COM "), "captain@example.com");
-  assert.equal(emailSchema.safeParse("not-an-email").success, false);
-  assert.equal(emailSchema.safeParse(null).success, false);
+test("Google requests only identity scopes, uses a fixed callback, and prompts for an individual account", () => {
+  assert.deepEqual(googleOAuthOptions("https://blueprint.example.com"), { redirectTo: "https://blueprint.example.com/auth/callback", skipBrowserRedirect: true, scopes: "openid email profile", queryParams: { prompt: "select_account" } });
 });
-test("magic links never create accounts and use the fixed canonical callback", () => {
-  assert.deepEqual(magicLinkOptions("https://blueprint.example.com"), { shouldCreateUser: false, emailRedirectTo: "https://blueprint.example.com/auth/callback" });
-});
-test("confirmation rejects unsupported OTP types and accepts only bounded tokens", () => {
-  const url = new URL("https://blueprint.example.com/auth/confirm?token_hash=abc&type=email&next=https://evil.example");
-  assert.deepEqual(confirmationInput(url), { token_hash: "abc", type: "email" });
-  for (const type of ["recovery", "signup", "email_change", "sms", ""]) {
-    url.searchParams.set("type", type); assert.equal(confirmationInput(url), null);
+test("OAuth redirects accept only the configured Supabase Google authorization endpoint", () => {
+  const origin = "https://blueprint.example.com";
+  const base = "https://project.supabase.co";
+  const url = `${base}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(`${origin}/auth/callback`)}`;
+  assert.equal(safeGoogleOAuthUrl(url, base, origin), url);
+  for (const value of [null, "not a URL", url.replace(base, "https://evil.example"), url.replace("provider=google", "provider=facebook"), url.replace("/auth/v1/authorize", "/other"), `${url}&provider=google`, `${url}#fragment`, url.replace(encodeURIComponent(`${origin}/auth/callback`), encodeURIComponent("https://evil.example"))]) {
+    assert.equal(safeGoogleOAuthUrl(value, base, origin), null);
   }
-  url.searchParams.set("type", "invite"); url.searchParams.set("token_hash", "a".repeat(513)); assert.equal(confirmationInput(url), null);
 });
 test("Supabase adapter validates getUser, not cookie getSession or metadata", async () => {
   let verified = false;

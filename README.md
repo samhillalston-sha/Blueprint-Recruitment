@@ -7,7 +7,7 @@ A private recruiting workspace for NYC Blueprint leadership. Built from a real o
 This checkpoint implements **only the application foundation**:
 
 - Next.js App Router, TypeScript, Tailwind, reusable shadcn-compatible UI primitives.
-- Invite-only Supabase magic-link sign-in and local sign-out.
+- Google sign-in through Supabase and local sign-out; workspace access is approval-only.
 - Server-verified identity plus an active leadership profile; authorization checked in the proxy, layout, pages, and database.
 - Branded, responsive Dashboard / Prospects / Settings shell and season selection.
 - 2027 current season and 2026 historical season, stored in Supabase.
@@ -36,6 +36,8 @@ npm run test:runtime
 See [setup](docs/SETUP.md) for hosted database and Auth steps, and [verification](docs/VERIFICATION.md) for the latest test results and limits.
 
 The runtime suite requires a completed production build. It runs the real Next.js server against synthetic, isolated Auth/database fixtures; no credentials or real emails are required. GitHub Actions repeats these checks on pushes and pull requests.
+
+Google OAuth still needs the one-time provider configuration described in setup. No email sender or custom domain is required. Use individual Google accounts for leadership access; a shared team account can own the administrative setup but should not represent multiple evaluators.
 
 ## Hosting
 

@@ -18,12 +18,13 @@ const seasons = [
 let fixture: Server;
 let app: ChildProcess;
 let appOrigin: string;
-let providerUnavailable = false;
 let profileUnavailable = false;
 let revoked = false;
 let logs = "";
 let validatedIdentities = 0;
-let otpRequest: { body: Record<string, unknown>; redirectTo: string | null } | null = null;
+let fixtureOrigin: string;
+let expectedVerifier = "synthetic-code-verifier";
+let exchangedCodes = 0;
 
 async function listen(server: Server): Promise<number> {
   await new Promise<void>((resolve, reject) => { server.once("error", reject); server.listen(0, "127.0.0.1", resolve); });
@@ -66,7 +67,6 @@ before(async () => {
     try { id = JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString()).sub; } catch { /* unauthenticated */ }
     if (url.pathname === "/auth/v1/user") {
       validatedIdentities++;
-      if (providerUnavailable) { response.statusCode = 503; response.end('{"message":"Synthetic outage"}'); return; }
       if (!Object.values(ids).includes(id)) { response.statusCode = 401; response.end('{"message":"Unverified identity"}'); return; }
       response.end(JSON.stringify(user(id))); return;
     }
@@ -81,29 +81,22 @@ before(async () => {
       response.end(JSON.stringify(id === ids.active && !revoked ? seasons : [])); return;
     }
     if (url.pathname === "/auth/v1/logout") { response.statusCode = 204; response.end(); return; }
-    if (url.pathname === "/auth/v1/otp") {
-      let body = "";
-      request.on("data", chunk => { body += String(chunk); });
-      request.on("end", () => {
-        otpRequest = { body: JSON.parse(body), redirectTo: url.searchParams.get("redirect_to") };
-        response.end('{"user":null,"session":null}');
-      });
-      return;
-    }
-    if (url.pathname === "/auth/v1/verify" || url.pathname === "/auth/v1/token") {
+    if (url.pathname === "/auth/v1/token") {
       let body = "";
       request.on("data", chunk => { body += String(chunk); });
       request.on("end", () => {
         const input = JSON.parse(body);
-        if (input.token_hash === "active-confirm" || (input.auth_code === "active-code" && input.code_verifier === "synthetic-code-verifier")) response.end(JSON.stringify(session("active")));
-        else if (input.token_hash === "inactive-confirm") response.end(JSON.stringify(session("inactive")));
-        else { response.statusCode = 401; response.end('{"msg":"Invalid synthetic token","code":"otp_expired"}'); }
+        exchangedCodes++;
+        if (input.auth_code === "active-code" && input.code_verifier === expectedVerifier) response.end(JSON.stringify(session("active")));
+        else if (input.auth_code === "inactive-code" && input.code_verifier === expectedVerifier) response.end(JSON.stringify(session("inactive")));
+        else { response.statusCode = 401; response.end('{"msg":"Invalid synthetic code","code":"bad_code_verifier"}'); }
       });
       return;
     }
     response.statusCode = 400; response.end('{"message":"Unsupported fixture request"}');
   });
   const fixturePort = await listen(fixture);
+  fixtureOrigin = `http://127.0.0.1:${fixturePort}`;
   const reserve = createServer();
   const appPort = await listen(reserve);
   await close(reserve);
@@ -132,8 +125,9 @@ test("production login renders a working form with security/cache headers", asyn
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.match(html, /Welcome back/);
-  assert.match(html, /type="email"/);
-  assert.match(html, /Send sign-in link/);
+  assert.match(html, /Sign in with Google/);
+  assert.match(html, /Use your individual Google account/);
+  assert.doesNotMatch(html, /type="email"|Send sign-in link/);
   assert.doesNotMatch(html, /Workspace setup is still in progress/);
   assert.match(response.headers.get("cache-control") ?? "", /no-store/);
   assert.equal(response.headers.get("x-frame-options"), "DENY");
@@ -187,17 +181,31 @@ test("profile provider failures fail closed", async () => {
     assert.equal(new URL(response.headers.get("location")!, appOrigin).searchParams.get("reason"), "unavailable");
   } finally { profileUnavailable = false; }
 });
-test("native sign-in server action normalizes email and never creates an account", async () => {
+test("native Google sign-in creates a PKCE verifier and redirects only to the configured provider", async () => {
   const html = await (await get("/login")).text();
-  const form = formFromHtml(html, 'name="email"');
-  form.set("email", " SYNTHETIC-CAPTAIN@EXAMPLE.COM ");
+  const form = formFromHtml(html, "Sign in with Google");
+  form.set("next", "https://evil.example"); // Caller-supplied destinations are ignored.
   const response = await fetch(`${appOrigin}/login`, { method: "POST", body: form, redirect: "manual", headers: { Origin: appOrigin } });
-  assert.equal(response.status, 200);
-  assert.ok(otpRequest, "Server must actually contact Auth");
-  assert.equal(otpRequest.body.email, "synthetic-captain@example.com");
-  assert.equal(otpRequest.body.create_user, false);
-  assert.equal(otpRequest.redirectTo, `${appOrigin}/auth/callback`);
-  assert.match(await response.text(), /If this address has been invited/);
+  assert.equal(response.status, 303);
+  const target = new URL(response.headers.get("location")!, appOrigin);
+  assert.equal(target.origin, fixtureOrigin);
+  assert.equal(target.pathname, "/auth/v1/authorize");
+  assert.equal(target.searchParams.get("provider"), "google");
+  assert.equal(target.searchParams.get("redirect_to"), `${appOrigin}/auth/callback`);
+  assert.equal(target.searchParams.get("prompt"), "select_account");
+  assert.equal(target.searchParams.get("scopes"), "openid email profile");
+  assert.equal(target.searchParams.get("code_challenge_method"), "s256");
+  assert.ok(target.searchParams.get("code_challenge"));
+  const cookies = response.headers.getSetCookie();
+  const verifierCookie = cookies.find(cookie => cookie.startsWith("sb-127-auth-token-code-verifier="));
+  assert.ok(verifierCookie, "Provider start must persist the verifier in the browser");
+  const encoded = verifierCookie.split(";")[0].split("=")[1].replace(/^base64-/, "");
+  expectedVerifier = JSON.parse(Buffer.from(encoded, "base64url").toString());
+  try {
+    const callback = await get("/auth/callback?code=active-code", undefined, { Cookie: cookies.map(cookie => cookie.split(";")[0]).join("; ") });
+    assert.equal(new URL(callback.headers.get("location")!, appOrigin).pathname, "/dashboard");
+    assert.match(callback.headers.get("set-cookie") ?? "", /sb-127-auth-token=/);
+  } finally { expectedVerifier = "synthetic-code-verifier"; }
 });
 test("native sign-out clears the session and redirects to login", async () => {
   const html = await (await get("/dashboard", "active")).text();
@@ -208,27 +216,19 @@ test("native sign-out clears the session and redirects to login", async () => {
   assert.match(response.headers.get("set-cookie") ?? "", /Max-Age=0/i);
 });
 test("invalid auth callbacks cannot redirect to untrusted next/host values", async () => {
-  for (const path of ["/auth/confirm?type=recovery&token_hash=bad&next=https://evil.example", "/auth/callback?next=https://evil.example"]) {
+  for (const path of ["/auth/callback?next=https://evil.example", "/auth/callback?error=access_denied&error_description=Untrusted", "/auth/callback?code=bad-code"]) {
     const response = await get(path, undefined, { "X-Forwarded-Host": "evil.example" });
     assert.equal(response.status, 307);
-    const location = new URL(response.headers.get("location")!);
+    const location = new URL(response.headers.get("location")!, appOrigin);
     assert.equal(location.origin, appOrigin);
     assert.equal(location.pathname, "/login");
-    assert.equal(location.searchParams.get("reason"), "link");
+    assert.equal(location.searchParams.get("reason"), "oauth");
     assert.match(response.headers.get("cache-control") ?? "", /no-store/);
   }
 });
-test("valid token-hash magic/invite links establish a session only for active leadership", async () => {
-  for (const type of ["email", "invite"]) {
-    const response = await get(`/auth/confirm?type=${type}&token_hash=active-confirm&next=https://evil.example`);
-    assert.equal(response.status, 307);
-    const target = new URL(response.headers.get("location")!, appOrigin);
-    assert.equal(target.origin, appOrigin);
-    assert.equal(target.pathname, "/dashboard");
-    assert.match(response.headers.get("set-cookie") ?? "", /sb-127-auth-token=/);
-    assert.match(response.headers.get("cache-control") ?? "", /no-store/);
-  }
-  const inactive = await get("/auth/confirm?type=email&token_hash=inactive-confirm");
+test("a successful Google callback does not grant access to inactive leadership", async () => {
+  const verifier = `sb-127-auth-token-code-verifier=base64-${Buffer.from(JSON.stringify("synthetic-code-verifier")).toString("base64url")}`;
+  const inactive = await get("/auth/callback?code=inactive-code", undefined, { Cookie: verifier });
   assert.equal(new URL(inactive.headers.get("location")!, appOrigin).searchParams.get("reason"), "access");
   assert.match(inactive.headers.get("set-cookie") ?? "", /Max-Age=0/i);
 });
@@ -238,4 +238,13 @@ test("PKCE callback exchanges the code using the verifier cookie", async () => {
   assert.equal(response.status, 307);
   assert.equal(new URL(response.headers.get("location")!, appOrigin).pathname, "/dashboard");
   assert.match(response.headers.get("set-cookie") ?? "", /sb-127-auth-token=/);
+});
+test("provider errors cannot be paired with a code to establish a session", async () => {
+  const previous = exchangedCodes;
+  const response = await get("/auth/callback?code=active-code&error=access_denied");
+  assert.equal(new URL(response.headers.get("location")!, appOrigin).searchParams.get("reason"), "oauth");
+  assert.equal(exchangedCodes, previous);
+});
+test("legacy emailed-token confirmation is not an available sign-in route", async () => {
+  assert.equal((await get("/auth/confirm?token_hash=active-confirm&type=email")).status, 404);
 });
