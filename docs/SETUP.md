@@ -1,4 +1,4 @@
-# Setup — existing Google sign-in and Phase 4
+# Setup — existing Google sign-in and Phase 5
 
 ## Existing infrastructure
 
@@ -93,4 +93,14 @@ The additive `20260917213220_phase_four_dashboard.sql` migration is applied to t
 
 The RPC returns exact counts and ten-row pages from one snapshot. Today is UTC; upcoming includes today. Missing actions includes whitespace. Recent activity is scoped to season membership and includes shared-fact updates, without including another season’s workflow events. Invalid pages default to the first page; out-of-range pages clamp to the last page. Dashboard errors use the workspace error boundary instead of displaying invented zero totals.
 
-Run `tests/phase-four-access.sql` alongside the earlier hosted permission scripts. All fixtures roll back. Merge the Phase 4 pull request to deploy through the existing Vercel GitHub integration. No new environment variables are needed.
+Run `tests/phase-four-access.sql` alongside the earlier hosted permission scripts. All fixtures roll back. Phase 4 PR #3 is merged; deployments use the existing Vercel GitHub integration. No new environment variables are needed.
+
+## Phase 5 evaluations
+
+Migration `20260918011509_phase_five_evaluations.sql` is applied to the same project; do not reapply it or recreate infrastructure. It adds RLS-protected `evaluations`, author-only score grants, private guarded attribution/logging triggers, and an authenticated-only security-invoker `evaluation_summary` RPC. It extends the existing activity event types for evaluation submissions and changes. No new application secrets or environment variables are needed.
+
+Open a prospect in an active season, choose 1–5 or N/A for all six attributes, and submit. Your saved evaluation can be updated; other leaders' evaluations are read-only. Blank initial choices indicate not submitted, whereas saved null ratings indicate explicit N/A. Closed-season evaluations are read-only. Reload before retrying if another tab changed your evaluation.
+
+Averages exclude N/A and show each attribute's rated/N/A counts. The comparison table displays individual scores and trusted evaluator-name snapshots; it scrolls within its container on mobile and is paginated at 25 evaluators. Summary averages include all submitted evaluations, including former evaluators, independently of pagination. Names are captured at submission; full leadership profiles and emails remain own-only. Database triggers log rating changes atomically and suppress no-op events.
+
+Verify hosted permissions with `tests/phase-five-access.sql` alongside the Phase 1–4 scripts. Every fixture is synthetic and rolls back. Merge the Phase 5 PR to deploy using the existing GitHub/Vercel integration. Stop before Phase 6.

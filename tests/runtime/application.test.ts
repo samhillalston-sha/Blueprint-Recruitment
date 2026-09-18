@@ -30,8 +30,12 @@ let activityUnavailable = false;
 let directoryUnavailable = false;
 let dashboardUnavailable = false;
 let workflowWrites = 0;
+const ratingKeys=["athleticism","offensive_ability","defensive_ability","coachability","on_field_vibes","off_field_vibes"];
+let evaluations:Array<Record<string,unknown>>=[];
+let evaluationsUnavailable=false;
+let evaluationWrites=0;
 function recordActivity(personId: unknown, seasonId: unknown, type: string, before: Record<string,unknown>, after: Record<string,unknown>, fields: string[]) {
- const changes=Object.fromEntries(fields.filter(key=>(before[key]??null)!==(after[key]??null)).map(key=>[key,{from:before[key]??null,to:after[key]??null,...(key==="owner_id"?{from_label:before[key]?"Synthetic Owner":null,to_label:after[key]?"Synthetic Owner":null}:{})}]));
+ const changes=Object.fromEntries(fields.filter(key=>type==="evaluation_submitted"||(before[key]??null)!==(after[key]??null)).map(key=>[key,{from:before[key]??null,to:after[key]??null,...(key==="owner_id"?{from_label:before[key]?"Synthetic Owner":null,to_label:after[key]?"Synthetic Owner":null}:{})}]));
  if(type.endsWith("updated") && !Object.keys(changes).length)return;
  activity.unshift({id:String(activity.length+1),prospect_id:personId,season_id:seasonId??null,actor_name:"Synthetic Captain",event_type:type,created_at:new Date().toISOString(),changes});
 }
@@ -157,6 +161,31 @@ before(async () => {
        upcoming:paged(ordered.filter(row=>row.follow_up_date&&String(row.follow_up_date)>=today),"upcoming"),
        owners:paged(ordered.filter(row=>row.owner_id===null),"owners"),
        actions:paged(ordered.filter(row=>!String(row.next_action??"").trim()),"actions")},activity:paged(events,"activity")}));
+     });return;
+    }
+    if(url.pathname==="/rest/v1/rpc/evaluation_summary") {
+     if(evaluationsUnavailable){response.statusCode=500;response.end('{"message":"Synthetic evaluations outage"}');return;}
+     let body="";request.on("data",chunk=>{body+=String(chunk);});request.on("end",()=>{
+      const args=JSON.parse(body);const rows=evaluations.filter(row=>row.candidacy_id===args.p_candidacy_id).sort((a,b)=>String(a.evaluator_name).localeCompare(String(b.evaluator_name))||String(a.evaluator_id).localeCompare(String(b.evaluator_id)));
+      const averages=Object.fromEntries(ratingKeys.map(key=>{const rated=rows.filter(row=>row[key]!==null);return[key,{mean:rated.length?rated.reduce((sum,row)=>sum+Number(row[key]),0)/rated.length:null,count:rated.length,na:rows.length-rated.length}];}));
+      const page=Math.max(1,Math.min(Math.ceil(rows.length/25)||1,args.p_page||1));
+      response.end(JSON.stringify({count:rows.length,page,rows:rows.slice((page-1)*25,page*25),own:rows.find(row=>row.evaluator_id===id)??null,averages}));
+     });return;
+    }
+    if(url.pathname==="/rest/v1/evaluations") {
+     if(evaluationsUnavailable){response.statusCode=500;response.end('{"message":"Synthetic evaluations outage"}');return;}
+     let rows=evaluations.filter(row=>row.evaluator_id===id);
+     for(const key of ["candidacy_id","evaluator_id","version"]) {const filter=url.searchParams.get(key);if(filter?.startsWith("eq."))rows=rows.filter(row=>String(row[key])===filter.slice(3));}
+     let body="";request.on("data",chunk=>{body+=String(chunk);});request.on("end",()=>{
+      const values=JSON.parse(body);const now=new Date().toISOString();
+      if(request.method==="POST") {
+       if(evaluations.some(row=>row.candidacy_id===values.candidacy_id&&row.evaluator_id===id)){response.statusCode=409;response.end('{"code":"23505","message":"Synthetic duplicate evaluation"}');return;}
+       const row={...values,id:"77777777-7777-4777-a777-777777777777",evaluator_id:id,evaluator_name:"Synthetic Captain",version:1,created_at:now,updated_at:now};evaluations.push(row);rows=[row];
+       const candidacy=memberships.find(c=>c.id===values.candidacy_id)!;recordActivity(candidacy.prospect_id,candidacy.season_id,"evaluation_submitted",{},row,ratingKeys);
+      } else if(request.method==="PATCH") {
+       rows.forEach(row=>{const previous={...row};if(ratingKeys.some(key=>row[key]!==values[key])){Object.assign(row,values,{version:Number(row.version)+1,updated_at:now});const candidacy=memberships.find(c=>c.id===row.candidacy_id)!;recordActivity(candidacy.prospect_id,candidacy.season_id,"evaluation_updated",previous,row,ratingKeys);}});
+      }
+      evaluationWrites++;response.end(JSON.stringify(rows.map(row=>({id:row.id}))));
      });return;
     }
     if(url.pathname==="/rest/v1/rpc/recruiting_leaders") {
@@ -625,4 +654,95 @@ test("hydrated dashboard navigates queues and historical context without mobile 
   assert.deepEqual(JSON.parse(await browser("errors","--json")).data.errors,[]);assert.doesNotMatch(await browser("console"),/hydration|Minified React|Uncaught/i);
   dashboardUnavailable=true;await browser("open",appOrigin+"/dashboard");await browser("wait","--text","Something isn’t available right now.");assert.doesNotMatch(await browser("snapshot"),/No overdue follow-ups|Every prospect in this season/);
  }finally{dashboardUnavailable=false;restore();await browser("close");}
+});
+
+const naRatings=Object.fromEntries(ratingKeys.map(key=>[key,null]));
+const naEntry=Object.fromEntries(ratingKeys.map(key=>[key,"na"]));
+const historicalEvaluationCandidacy="33333333-3333-4333-a333-333333333333";
+function seedEvaluations() {
+ const original={evaluations,memberships,activity};
+ const timestamp="2026-09-18T00:00:00Z";
+ memberships=[...memberships.filter(row=>row.prospect_id!==syntheticId||row.season_id!==seasons[1].id),membership({id:historicalEvaluationCandidacy,season_id:seasons[1].id})];
+ evaluations=[{...naRatings,id:"22222222-2222-4222-a222-222222222222",candidacy_id:syntheticCandidacyId,evaluator_id:ownerId,evaluator_name:"Synthetic Other Evaluator",athleticism:1,defensive_ability:5,on_field_vibes:4,version:1,created_at:timestamp,updated_at:timestamp},
+  {...naRatings,id:"11111111-2222-4222-a222-222222222222",candidacy_id:historicalEvaluationCandidacy,evaluator_id:ids.active,evaluator_name:"Synthetic Historical Evaluator",athleticism:5,version:1,created_at:timestamp,updated_at:timestamp}];
+ activity=[];
+ return ()=>{evaluations=original.evaluations;memberships=original.memberships;activity=original.activity;};
+}
+const evaluationPath="/prospects/"+syntheticId+"?season=2027";
+async function evaluationForm(){return formFromHtml(await(await get(evaluationPath,"active")).text(),'name="athleticism"');}
+async function postEvaluation(form:FormData,values:Record<string,string>={},kind:keyof typeof ids="active") {
+ Object.entries({...naEntry,...values}).forEach(([key,value])=>form.set(key,value));
+ return fetch(appOrigin+evaluationPath,{method:"POST",body:form,redirect:"manual",signal:AbortSignal.timeout(15000),headers:{Cookie:sessionCookie(kind),Origin:appOrigin}});
+}
+test("other evaluations and N/A averages are visible before submitting; historical ratings stay separate",async()=>{
+ const restore=seedEvaluations();
+ try {
+  const html=await(await get(evaluationPath,"active")).text();
+  for(const text of ["Synthetic Other Evaluator","Submit evaluation","Evaluator comparison","Individual submitted ratings","Attribute averages","Choose rating"])assert.ok(html.includes(text),text);
+  assert.match(html,/aria-label="Athleticism average">1.00 \/ 5</);assert.match(html,/aria-label="Offensive Ability average">N\/A</);assert.doesNotMatch(html,/Synthetic Historical Evaluator/);
+  const historical=await(await get("/prospects/"+syntheticId+"?season=2026","active")).text();assert.match(historical,/Synthetic Historical Evaluator/);assert.match(historical,/Historical evaluations.*Read-only/);assert.doesNotMatch(historical,/Submit evaluation|Update evaluation|Synthetic Other Evaluator/);
+ }finally{restore();}
+});
+test("native evaluation submission and edits persist N/A, trusted author, averages and attributed activity",async()=>{
+ const restore=seedEvaluations();
+ try {
+  const submitted=await postEvaluation(await evaluationForm(),{athleticism:"5",offensive_ability:"4",evaluator_id:ownerId,evaluator_name:"Forged author"});assert.equal(submitted.status,303);assert.match(submitted.headers.get("location")!,/season=2027#evaluations/);
+  const row=evaluations.find(row=>row.candidacy_id===syntheticCandidacyId&&row.evaluator_id===ids.active)!;assert.equal(row.evaluator_name,"Synthetic Captain");assert.equal(row.defensive_ability,null);assert.equal(row.athleticism,5);assert.equal(row.version,1);
+  const html=await(await get(evaluationPath,"active")).text();assert.match(html,/aria-label="Athleticism average">3.00 \/ 5</);assert.match(html,/Synthetic Captain.*\(you\)/);assert.match(html,/Evaluation submitted/);assert.doesNotMatch(html,/Forged author/);
+  const updated=await postEvaluation(await evaluationForm(),{athleticism:"3",offensive_ability:"4",coachability:"2"});assert.equal(updated.status,303);assert.equal(row.version,2);assert.equal(row.coachability,2);
+  const timeline=await(await get(evaluationPath,"active")).text();assert.match(timeline,/Evaluation updated/);assert.match(timeline,/aria-label="Athleticism average">2.00 \/ 5</);
+  const before=activity.length;await postEvaluation(await evaluationForm(),{athleticism:"3",offensive_ability:"4",coachability:"2"});assert.equal(row.version,2);assert.equal(activity.length,before);
+  assert.ok(activity.every(event=>event.season_id===seasons[0].id));
+  assert.match(await(await get("/dashboard?season=2027","active")).text(),/Evaluation updated/);
+ }finally{restore();}
+});
+test("evaluation forms reject blank, zero and fractional choices without writing",async()=>{
+ const restore=seedEvaluations();const before=evaluationWrites;
+ try {for(const athleticism of ["","0","6","2.5"]){const response=await postEvaluation(await evaluationForm(),{athleticism});assert.equal(response.status,200);assert.match(await response.text(),/Choose 1–5 or N\/A for every attribute/);}assert.equal(evaluationWrites,before);assert.equal(evaluations.length,2);}finally{restore();}
+});
+test("duplicate first submissions and stale evaluation edits preserve the current ratings",async()=>{
+ const restore=seedEvaluations();
+ try {
+  const first=await evaluationForm();const second=await evaluationForm();assert.equal((await postEvaluation(first,{athleticism:"5"})).status,303);
+  const duplicate=await postEvaluation(second,{athleticism:"1"});assert.equal(duplicate.status,200);assert.match(await duplicate.text(),/Your evaluation changed in another tab/);
+  const stale=await evaluationForm();const row=evaluations.find(row=>row.evaluator_id===ids.active&&row.candidacy_id===syntheticCandidacyId)!;row.version=2;row.athleticism=4;
+  const response=await postEvaluation(stale,{athleticism:"1"});assert.equal(response.status,200);assert.match(await response.text(),/Your evaluation changed in another tab/);assert.equal(row.athleticism,4);
+ }finally{restore();}
+});
+test("evaluation comparison pages keep full averages and the editable own row",async()=>{
+ const restore=seedEvaluations();
+ try {
+  assert.equal((await postEvaluation(await evaluationForm(),{athleticism:"5"})).status,303);
+  for(let i=0;i<27;i++)evaluations.push({...naRatings,id:"synthetic-page-"+i,candidacy_id:syntheticCandidacyId,evaluator_id:"synthetic-evaluator-"+i,evaluator_name:"Synthetic Page Evaluator "+String(i).padStart(2,"0"),version:1,created_at:"2026-09-18T00:00:00Z",updated_at:"2026-09-18T00:00:00Z"});
+  const html=await(await get(evaluationPath+"&evaluationPage=2","active")).text();assert.match(html,/Edit your evaluation/);assert.match(html,/aria-label="Athleticism average">3.00 \/ 5</);assert.match(html,/season=2027&amp;evaluationPage=1#evaluations/);assert.match(html,/Synthetic Page Evaluator 26/);
+  const clamped=await(await get(evaluationPath+"&evaluationPage=999999","active")).text();assert.match(clamped,/Synthetic Page Evaluator 26/);
+ }finally{restore();}
+});
+test("captured evaluation actions deny revocation and closure; evaluation outages never invent empty averages",async()=>{
+ const restore=seedEvaluations();const before=evaluationWrites;
+ try {
+  const form=await evaluationForm();const inactive=await postEvaluation(form,{},"inactive");assert.equal(new URL(inactive.headers.get("location")!,appOrigin).pathname,"/login");
+  revoked=true;try{const denied=await postEvaluation(form);assert.equal(new URL(denied.headers.get("location")!,appOrigin).pathname,"/login");}finally{revoked=false;}
+  seasons[0].status="closed";try{const response=await postEvaluation(form);assert.equal(response.status,200);assert.match(await response.text(),/Historical seasons are read-only/);}finally{seasons[0].status="active";}
+  assert.equal(evaluationWrites,before);
+  evaluationsUnavailable=true;try{const html=await(await get(evaluationPath,"active")).text();assert.match(html,/error|unavailable/i);assert.doesNotMatch(html,/No evaluations submitted|Attribute averages/);}finally{evaluationsUnavailable=false;}
+ }finally{restore();}
+});
+test("hydrated evaluations submit N/A, edit ratings and display comparison without mobile overflow",{skip:process.env.BLUEPRINT_BROWSER_QA!=="1",timeout:120_000},async()=>{
+ const restore=seedEvaluations();const run=promisify(execFile);
+ const browser=async(...args:string[])=>(await run("npx",["--yes","agent-browser@0.38.1",...args],{env:{...process.env,AGENT_BROWSER_SESSION:"blueprint-phase5-ci"},timeout:40_000,maxBuffer:2_000_000})).stdout;
+ await mkdir(".qa",{recursive:true});
+ try {
+  await browser("open",appOrigin+"/login");const cookie=sessionCookie("active");const separator=cookie.indexOf("=");await browser("cookies","set",cookie.slice(0,separator),cookie.slice(separator+1),"--url",appOrigin);
+  await browser("open",appOrigin+evaluationPath);await browser("wait",'select[name="athleticism"]');assert.match(await browser("snapshot"),/Synthetic Other Evaluator/);assert.match(await browser("get","text",'[aria-label="Athleticism average"]'),/1.00/);
+  for(const key of ratingKeys)await browser("select",`select[name="${key}"]`,key==="athleticism"?"5":"na");
+  await browser("find","role","button","click","--name","Submit evaluation");await browser("wait","--text","Edit your evaluation");assert.match(await browser("get","text",'[aria-label="Athleticism average"]'),/3.00/);
+  const own=evaluations.find(row=>row.evaluator_id===ids.active&&row.candidacy_id===syntheticCandidacyId)!;assert.equal(own.athleticism,5);assert.ok(ratingKeys.filter(key=>key!=="athleticism").every(key=>own[key]===null));
+  await browser("select",'select[name="athleticism"]',"3");await browser("select",'select[name="coachability"]',"2");await browser("find","role","button","click","--name","Update evaluation");await browser("wait","--text","Evaluation updated");assert.equal(own.version,2);assert.equal(own.athleticism,3);assert.equal(own.coachability,2);assert.match(await browser("get","text",'[aria-label="Athleticism average"]'),/2.00/);
+  await browser("screenshot",resolve(".qa/phase5-evaluations-desktop.png"),"--full");assert.ok((await stat(".qa/phase5-evaluations-desktop.png")).size>0);
+  await browser("open",appOrigin+"/prospects/"+syntheticId+"?season=2026");assert.match(await browser("snapshot"),/Synthetic Historical Evaluator/);assert.doesNotMatch(await browser("snapshot","-i"),/Submit evaluation|Update evaluation/);
+  await browser("set","viewport","390","844");await browser("open",appOrigin+evaluationPath);await browser("wait",'#evaluations');await browser("screenshot",resolve(".qa/phase5-evaluations-mobile.png"),"--full");assert.ok((await stat(".qa/phase5-evaluations-mobile.png")).size>0);
+  const layout=JSON.parse(await browser("eval","({width:innerWidth,scrollWidth:document.documentElement.scrollWidth,tableWidth:document.querySelector('[aria-label=\"Individual evaluations comparison table\"]').scrollWidth})","--json")).data.result;assert.ok(layout.scrollWidth<=layout.width+1,JSON.stringify(layout));assert.ok(layout.tableWidth>layout.width,"Comparison scrolls within its container");
+  assert.deepEqual(JSON.parse(await browser("errors","--json")).data.errors,[]);assert.doesNotMatch(await browser("console"),/hydration|Minified React|Uncaught/i);
+ }finally{restore();await browser("close");}
 });
