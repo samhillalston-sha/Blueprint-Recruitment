@@ -617,7 +617,7 @@ test("hydrated dashboard navigates queues and historical context without mobile 
   const initial=await browser("snapshot");for(const title of ["Overdue follow-ups","Upcoming follow-ups","Missing owners","Missing next actions","Recent activity","Due today"])assert.ok(initial.includes(title),title);
   await browser("screenshot",resolve(".qa/phase4-dashboard-desktop.png"));assert.ok((await stat(".qa/phase4-dashboard-desktop.png")).size>0);
   await browser("click",'#overdue nav a');await browser("wait","--text","Synthetic Dashboard 12");assert.match(await browser("get","url"),/season=2027.*overdue=2/);
-  await browser("click",'#upcoming li a');await browser("wait",'select[name="stage"]');assert.match(await browser("get","url"),/prospects\/.*season=2027/);
+  await browser("click",'#upcoming li:first-child a');await browser("wait",'select[name="stage"]');assert.match(await browser("get","url"),/prospects\/.*season=2027/);
   await browser("open",appOrigin+"/dashboard?season=2026");await browser("wait","--text","Historical records are read-only");assert.match(await browser("snapshot"),/Synthetic Dashboard 16/);
   await browser("set","viewport","390","844");await browser("open",appOrigin+"/dashboard?season=2027");await browser("wait",'#activity');
   await browser("screenshot",resolve(".qa/phase4-dashboard-mobile.png"));assert.ok((await stat(".qa/phase4-dashboard-mobile.png")).size>0);
