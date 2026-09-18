@@ -23,7 +23,7 @@ The user confirmed the deployed prospect screens after merging Phase 2.
 - Selected-season workflow columns and actual dashboard stage counts. Follow-up labels use UTC calendar dates; dates do not send notifications.
 - Distinct workflow and outlook for each season. Closed seasons remain read-only. Revoked owners remain in existing records; new assignments require active leadership. Version checks reject stale saves.
 
-## Phase 4 — authorized dashboard
+## Phase 4 — merged dashboard
 
 - Real stage counts and independently paginated operational queues, ten rows per page with exact totals.
 - Overdue follow-ups have dates before today; upcoming includes today and all later dates. All comparisons use the database's UTC calendar date in one consistent snapshot. Unscheduled prospects appear in neither date queue.
@@ -32,11 +32,19 @@ The user confirmed the deployed prospect screens after merging Phase 2.
 - Prospect links preserve the selected season. Historical dashboards compare stored dates with today and label the records read-only. These are current records, not reconstructed historical snapshots.
 - No new reminders, notes, evaluations, outcomes or imports.
 
-Stop before Phase 5. Notes, manual interaction entries, evaluations, outcomes, imports, reminders/notifications, AI, and tryout/roster management are not authorized.
+## Phase 5 — authorized evaluations
+
+- Six seasonal attributes: Athleticism, Offensive Ability, Defensive Ability, Coachability, On Field Vibes, Off Field Vibes. Every entry explicitly chooses an integer 1–5 (5 highest) or N/A; blank choices cannot submit.
+- One evaluation per leader and seasonal candidacy. Authors can edit their own current-season scores; others cannot overwrite them. Version checks reject stale edits and duplicate first submissions. Client deletion, author changes and season reassignment are unavailable.
+- All approved leaders can see individual evaluations and averages before submitting their own. No self-submission gate or blind-review mode.
+- Attribute averages exclude N/A, show independent numeric and N/A counts, and use every submitted evaluation, including retained former leaders. No evaluations and an all-N/A evaluation remain distinct. No numeric scores produces an N/A average, never a zero.
+- Individual ratings appear in the evaluator comparison table with trusted evaluator names and UTC update times. Comparison pages have 25 rows; averages and the caller's entry include all records regardless of the selected page.
+- Historical seasonal evaluations remain read-only and independent. Submitted/updated evaluations appear in the existing timeline and selected-season dashboard activity, with trusted authorship and before/after values. No-op saves do not create events or advance versions.
+
+Stop before Phase 6. Notes, manual interaction entries, outcomes, imports, reminders/notifications, AI, and tryout/roster management are not authorized.
 
 ## Agreed later recruiting requirements — remaining work
 
-- Evaluations: Athleticism, Offensive Ability, Defensive Ability, Coachability, On Field Vibes, Off Field Vibes; each 1–5 or N/A, with 5 highest. Leadership can see individual and aggregate evaluations **before submitting their own**.
 - Notes, manual interaction history, and additional workflow filters. Name search and follow-up identification already exist.
 - Seasonal outcomes: Still Active, Rostered, Practice Player, Cut–Encourage to Return, Cut–Closed, Withdrew/Chose Another Team, Did Not Attend. These are separate from recruiting stages.
 - Initial private import will be limited to available source fields; don't invent ratings, physical attributes, interest, or contact details. Private player data must not enter this public source repository.

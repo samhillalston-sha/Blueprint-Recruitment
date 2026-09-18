@@ -2,7 +2,7 @@
 
 A private recruiting workspace for NYC Blueprint leadership. It keeps recruiting memory in one place, with individual Google sign-in and manually approved leadership access.
 
-## Current scope — Phase 4
+## Current scope — Phase 5
 
 Phase 1 is deployed at https://blueprint-recruitment.vercel.app. The user confirmed Google sign-in, manual approval, and dashboard access on September 17, 2026.
 
@@ -23,7 +23,9 @@ The profile's paginated activity timeline spans all seasons. Database triggers l
 
 Phase 3 is merged in PR #2. Phase 4 adds the selected-season dashboard: stage counts, overdue follow-ups, upcoming follow-ups (today and later), missing owners, missing next actions, and recent activity. Dates use UTC. Each queue is paginated with exact totals; blank/whitespace-only actions count as missing. Recent activity includes selected-season events and shared facts for people in that season. Links open the prospect in the same season; historical records remain read-only.
 
-Notes, manual interaction entries, evaluations, outcomes, imports, AI, and tryout/roster management remain outside scope. Stop before Phase 5.
+Phase 4 is merged in PR #3. Phase 5 adds one evaluation per leader per seasonal prospect, editable by its author while the season is active. Six attributes use 1–5 (5 highest) or explicit N/A: Athleticism, Offensive Ability, Defensive Ability, Coachability, On Field Vibes, and Off Field Vibes. Individual ratings and attribute averages are visible before your own submission. N/A is excluded from averages; each attribute shows its numeric rating count and N/A count. A paginated evaluator comparison table retains former evaluators and historical seasons. Important rating edits are logged automatically, and stale tabs cannot overwrite newer scores.
+
+Notes, manual interaction entries, outcomes, imports, AI, and tryout/roster management remain outside scope. Stop before Phase 6.
 
 ## Development and verification
 

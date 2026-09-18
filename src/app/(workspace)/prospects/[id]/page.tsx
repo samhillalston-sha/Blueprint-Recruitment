@@ -11,10 +11,14 @@ import { WorkflowForm } from "@/components/workflow-form";
 import { ActivityTimeline } from "@/components/activity-timeline";
 import { saveWorkflow } from "../workflow-actions";
 
+import { getEvaluations } from "@/lib/evaluations";
+import { evaluationPage } from "@/lib/evaluation-policy";
+import { Evaluations } from "@/components/evaluations";
+import { saveEvaluation } from "../evaluation-actions";
 import { addToSeason } from "../actions";
 export const metadata = { title: "Prospect profile" };
-export default async function ProspectProfile({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ season?: string; activityPage?: string }> }) {
- await requireLeadership();
+export default async function ProspectProfile({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ season?: string; activityPage?: string; evaluationPage?: string }> }) {
+ const {user}=await requireLeadership();
  const person = await getProspect((await params).id);
  const seasons = await getSeasons();
  const search = await searchParams;
@@ -22,6 +26,7 @@ export default async function ProspectProfile({ params, searchParams }: { params
  const page = /^\d+$/.test(search.activityPage ?? "") ? Math.max(1,Math.min(10000,Number(search.activityPage))) : 1;
  const [memberships, leaders, activity] = await Promise.all([getCandidacies(person.id),getRecruitingLeaders(),getActivity(person.id,page)]);
  const candidacy = memberships.find(row => row.season_id === season?.id);
+ const evaluations = candidacy ? await getEvaluations(candidacy.id,evaluationPage(search.evaluationPage)) : null;
  const inSeason = memberships.some(row => row.season_id === season?.id);
  const query = season ? "?season=" + season.year : "";
  const facts = [["Email",person.email],["Phone",person.phone],["Location",person.location],["Teams",person.teams],["Position",person.position],["Age",person.age],["Height (cm)",person.height_cm]];
@@ -46,6 +51,7 @@ export default async function ProspectProfile({ params, searchParams }: { params
    <ul className="space-y-3">{seasons.filter(item => memberships.some(row => row.season_id === item.id)).map(item => <li key={item.id}><Link className="text-sm font-semibold text-primary underline" href={"/prospects/" + person.id + "?season=" + item.year}>{item.name}</Link><span className="ml-3 text-xs text-muted-foreground">{item.status === "closed" ? "Historical" : "Active"} · {memberships.find(row => row.season_id === item.id)?.stage}</span></li>)}</ul>
    {!memberships.length && <p className="text-sm text-muted-foreground">No season records yet.</p>}
   </div></section>
+  {candidacy && season && evaluations && <Evaluations summary={evaluations} userId={user.id} seasonName={season.name} profileUrl={"/prospects/"+person.id+"?season="+season.year} saveAction={season.status === "active" ? saveEvaluation.bind(null,person.id,season.id,candidacy.id,evaluations.own?.version??0) : undefined}/>}
   <ActivityTimeline rows={activity.rows} count={activity.count} page={page} seasons={seasons} profileUrl={"/prospects/" + person.id + "?season=" + (season?.year ?? "")} />
   <p className="text-xs text-muted-foreground">Season membership records recruiting history. It is not a tryout confirmation or a roster offer.</p>
  </div>;
