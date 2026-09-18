@@ -57,7 +57,7 @@ Local browser launch is blocked by sandbox socket restrictions (`Operation not p
 
 The existing Auth leaked-password warning remains ([remediation](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)); Google is the approved login method and Auth settings were not changed. Keep new season, owner, follow-up, timeline, and foreign-key indexes despite unused-index notices on a small database ([reference](https://supabase.com/docs/guides/database/database-linter?lint=0005_unused_index)).
 
-## Current limits
+## Limits recorded at Phase 3 completion
 
 - Vercel connector lists no teams; Phase 3 preview deployment inspection returned 403 for scope `blueprint-5769`. Existing infrastructure was not recreated. Authenticated production Phase 3 verification remains unavailable through that connector.
 - No real prospect data was imported or committed. Tests contain synthetic people only.
@@ -65,4 +65,18 @@ The existing Auth leaked-password warning remains ([remediation](https://supabas
 - Duplicate detection is a warning, not a name uniqueness constraint. Same-name people are permitted; simultaneous writes may race.
 - Activity logging begins with the Phase 3 migration, including writes by the existing Phase 2 forms. No retrospective field history is claimed. Clients cannot modify events; privileged database administrators retain their normal infrastructure powers.
 - Projections are qualitative text, not ratings or roster composition modeling. Follow-up dates do not send reminders or notifications.
-- Phase 4 and later features remain excluded. Phase 3 frontend reaches production only after the PR is merged and Vercel deploys it.
+- At Phase 3 completion, Phase 4 and later features remained excluded. PR #2 has since been merged; the user subsequently authorized Phase 4.
+
+## Phase 4 — September 18, 2026
+
+Started from merged main `5d8ede7`, after reviewing AGENTS.md, README and project docs and inspecting existing migration history, exposed functions and table RLS. Phase 3 PR #2 is merged. Phase 4 stops before Phase 5.
+
+Applied additive migration `20260917213220_phase_four_dashboard.sql` to existing project `ldrdsvsmwnjzhyzqdcdt`. It adds a read-only, guarded security-invoker dashboard RPC; no existing infrastructure, table policies, history or records are replaced. Counts and pages share one database snapshot. Each queue is bounded to ten rows and retains an exact total beyond API row limits.
+
+Local verification: 30 unit tests passed; typecheck and production build passed; 30 runtime tests passed, with two optional browser tests skipped locally because of sandbox browser socket restrictions. The new runtime coverage checks exact stage/queue counts, today's UTC boundary, whitespace-only actions, season/shared-event isolation, independent pagination, clamped pages, historical context, and provider errors without fabricated empty states.
+
+Hosted `tests/phase-four-access.sql` passed, including 16 synthetic seasonal prospects, date boundaries, null/empty/whitespace actions, exact counts, bounded pagination, malformed and out-of-range pages, shared facts and historical activity, unavailable seasons, no writes during reads, own-only full profiles, caller RLS, and anonymous/inactive/missing/revoked denial. Phase 1, 2 and 3 hosted access regression scripts also passed. All synthetic fixtures rolled back.
+
+Supabase advisors show no new security issues: the existing [leaked-password warning](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection) remains with Google-only sign-in settings unchanged, plus [unused-index informational notices](https://supabase.com/docs/guides/database/database-linter?lint=0005_unused_index). All five existing public tables retain RLS.
+
+Hosted browser/CI and Vercel preview results will be recorded after the PR checks complete. Authenticated production testing is not claimed. No real prospect data, credentials, private exports or private screenshots are committed.

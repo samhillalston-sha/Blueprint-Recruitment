@@ -1,4 +1,4 @@
-# Setup — existing Google sign-in and Phase 3
+# Setup — existing Google sign-in and Phase 4
 
 ## Existing infrastructure
 
@@ -86,3 +86,11 @@ On an active-season profile, save recruiting details. Follow-up dates are calend
 If another leader edits a candidacy after you open it, saving is rejected. Use Reload profile to review the current record before entering your changes again. Ownership can be cleared or reassigned if a member loses approval; existing ownership history remains intact.
 
 Verify hosted permissions with `tests/database-access.sql`, `tests/phase-two-access.sql`, and `tests/phase-three-access.sql`. All use isolated synthetic fixtures and roll back. Never use real prospect records as test fixtures.
+
+## Phase 4 dashboard
+
+The additive `20260917213220_phase_four_dashboard.sql` migration is applied to the existing project. Do not reapply it. It adds only `recruiting_dashboard(season_id, pages)`, a read-only security-invoker RPC with an empty search path, current leadership guard, existing caller RLS, and authenticated-only execution. No tables, policies, records, credentials or infrastructure are replaced.
+
+The RPC returns exact counts and ten-row pages from one snapshot. Today is UTC; upcoming includes today. Missing actions includes whitespace. Recent activity is scoped to season membership and includes shared-fact updates, without including another season’s workflow events. Invalid pages default to the first page; out-of-range pages clamp to the last page. Dashboard errors use the workspace error boundary instead of displaying invented zero totals.
+
+Run `tests/phase-four-access.sql` alongside the earlier hosted permission scripts. All fixtures roll back. Merge the Phase 4 pull request to deploy through the existing Vercel GitHub integration. No new environment variables are needed.

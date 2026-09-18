@@ -14,7 +14,7 @@ Persistent people and separate season memberships; list/search/pagination; creat
 
 The user confirmed the deployed prospect screens after merging Phase 2.
 
-## Phase 3 — authorized recruiting workflow
+## Phase 3 — merged recruiting workflow
 
 - Seasonal stages: Unknown Prospect, Known Prospect, Confirmed for Tryouts. These remain separate from future season outcomes.
 - Optional High / Medium / Low priority, approved active leadership owner, free-text next action, and follow-up date. No invented priority or owner defaults.
@@ -23,7 +23,16 @@ The user confirmed the deployed prospect screens after merging Phase 2.
 - Selected-season workflow columns and actual dashboard stage counts. Follow-up labels use UTC calendar dates; dates do not send notifications.
 - Distinct workflow and outlook for each season. Closed seasons remain read-only. Revoked owners remain in existing records; new assignments require active leadership. Version checks reject stale saves.
 
-Stop before Phase 4. Notes, manual interaction entries, evaluations, outcomes, imports, reminders/notifications, AI, and tryout/roster management are not authorized.
+## Phase 4 — authorized dashboard
+
+- Real stage counts and independently paginated operational queues, ten rows per page with exact totals.
+- Overdue follow-ups have dates before today; upcoming includes today and all later dates. All comparisons use the database's UTC calendar date in one consistent snapshot. Unscheduled prospects appear in neither date queue.
+- Missing owners means no assignment, without clearing revoked owners. Missing next actions includes null, empty and whitespace-only text.
+- Recent activity includes selected-season events plus shared-fact events for people with membership in the selected season; it excludes other seasons' workflow changes and people outside the season.
+- Prospect links preserve the selected season. Historical dashboards compare stored dates with today and label the records read-only. These are current records, not reconstructed historical snapshots.
+- No new reminders, notes, evaluations, outcomes or imports.
+
+Stop before Phase 5. Notes, manual interaction entries, evaluations, outcomes, imports, reminders/notifications, AI, and tryout/roster management are not authorized.
 
 ## Agreed later recruiting requirements — remaining work
 

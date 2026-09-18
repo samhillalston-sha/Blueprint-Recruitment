@@ -28,6 +28,7 @@ let memberships = [membership({})] as Array<Record<string,unknown>>;
 let activity = [] as Array<Record<string,unknown>>;
 let activityUnavailable = false;
 let directoryUnavailable = false;
+let dashboardUnavailable = false;
 let workflowWrites = 0;
 function recordActivity(personId: unknown, seasonId: unknown, type: string, before: Record<string,unknown>, after: Record<string,unknown>, fields: string[]) {
  const changes=Object.fromEntries(fields.filter(key=>(before[key]??null)!==(after[key]??null)).map(key=>[key,{from:before[key]??null,to:after[key]??null,...(key==="owner_id"?{from_label:before[key]?"Synthetic Owner":null,to_label:after[key]?"Synthetic Owner":null}:{})}]));
@@ -142,6 +143,21 @@ before(async () => {
       }
       response.setHeader("Content-Range","0-"+Math.max(0,rows.length-1)+"/"+rows.length);
       response.end(request.method==="HEAD"?undefined:JSON.stringify(rows));return;
+    }
+    if(url.pathname==="/rest/v1/rpc/recruiting_dashboard") {
+     if(dashboardUnavailable){response.statusCode=500;response.end('{"message":"Synthetic dashboard outage"}');return;}
+     let body="";request.on("data",chunk=>{body+=String(chunk);});request.on("end",()=>{
+      const args=JSON.parse(body);const today=new Date().toISOString().slice(0,10);
+      const rows:Array<Record<string,unknown>>=memberships.filter(row=>row.season_id===args.p_season_id).map(row=>({...row,full_name:people.find(p=>p.id===row.prospect_id)?.full_name}));
+      const paged=(items:Array<Record<string,unknown>>,key:string)=>{const page=Math.max(1,Math.min(Math.ceil(items.length/10)||1,Number(args.p_pages?.[key])||1));return{count:items.length,page,rows:items.slice((page-1)*10,page*10)};};
+      const ordered=[...rows].sort((a,b)=>String(a.follow_up_date??"9999").localeCompare(String(b.follow_up_date??"9999"))||String(a.full_name).localeCompare(String(b.full_name))||String(a.id).localeCompare(String(b.id)));
+      const events:Array<Record<string,unknown>>=activity.filter(event=>rows.some(row=>row.prospect_id===event.prospect_id)&&(event.season_id===args.p_season_id||event.season_id===null)).map((event):Record<string,unknown>=>({...event,full_name:people.find(p=>p.id===event.prospect_id)?.full_name})).sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at))||String(b.id).localeCompare(String(a.id)));
+      response.end(JSON.stringify({today,stages:["Unknown Prospect","Known Prospect","Confirmed for Tryouts"].map(stage=>rows.filter(row=>row.stage===stage).length),queues:{
+       overdue:paged(ordered.filter(row=>row.follow_up_date&&String(row.follow_up_date)<today),"overdue"),
+       upcoming:paged(ordered.filter(row=>row.follow_up_date&&String(row.follow_up_date)>=today),"upcoming"),
+       owners:paged(ordered.filter(row=>row.owner_id===null),"owners"),
+       actions:paged(ordered.filter(row=>!String(row.next_action??"").trim()),"actions")},activity:paged(events,"activity")}));
+     });return;
     }
     if(url.pathname==="/rest/v1/rpc/recruiting_leaders") {
      if(directoryUnavailable){response.statusCode=500;response.end('{"message":"Synthetic directory outage"}');return;}
@@ -552,4 +568,61 @@ test("hydrated browser saves workflow, displays attributed activity and preserve
  }finally{
   memberships=original;await browser("close");
  }
+});
+
+function seedDashboard() {
+ const original={people,memberships,activity};
+ const today=new Date().toISOString().slice(0,10);
+ const yesterday=new Date(Date.parse(today)+-86400000).toISOString().slice(0,10);
+ const tomorrow=new Date(Date.parse(today)+86400000).toISOString().slice(0,10);
+ people=[];memberships=[];activity=[];
+ for(let i=0;i<17;i++) {
+  const id=`40000000-0000-4000-a000-${String(i).padStart(12,"0")}`;
+  people.push({...original.people[0],id,full_name:`Synthetic Dashboard ${String(i).padStart(2,"0")}`});
+  memberships.push(membership({id:`50000000-0000-4000-a000-${String(i).padStart(12,"0")}`,prospect_id:id,season_id:seasons[i===16?1:0].id,stage:["Unknown Prospect","Known Prospect","Confirmed for Tryouts"][i%3],owner_id:i<2?null:ownerId,next_action:i===0?null:i===1?"":i===2?" \t\n ":"Synthetic follow-up "+i,follow_up_date:i<13||i===16?yesterday:i===13?today:i===14?tomorrow:null}));
+ }
+ memberships.push(membership({id:"50000000-0000-4000-a000-999999999999",prospect_id:people[0].id,season_id:seasons[1].id,stage:"Confirmed for Tryouts",next_action:"Synthetic historical action",follow_up_date:yesterday}));
+ for(let i=0;i<15;i++)activity.push({id:String(i).padStart(3,"0"),prospect_id:people[0].id,season_id:i===0?null:seasons[0].id,actor_name:"Synthetic Dashboard Captain",event_type:i===0?"prospect_updated":"workflow_updated",created_at:today+"T12:00:00Z",changes:{}});
+ activity.push({id:"other-season",prospect_id:people[0].id,season_id:seasons[1].id,actor_name:"Synthetic cross-season author",event_type:"workflow_updated",created_at:today+"T13:00:00Z",changes:{}});
+ activity.push({id:"excluded-person",prospect_id:people[16].id,season_id:null,actor_name:"Synthetic excluded author",event_type:"prospect_updated",created_at:today+"T14:00:00Z",changes:{}});
+ return ()=>{people=original.people;memberships=original.memberships;activity=original.activity;};
+}
+test("dashboard shows actual date-boundary counts, blank actions, selected-season activity and pagination",async()=>{
+ const restore=seedDashboard();
+ try {
+  const first=await(await get("/dashboard?season=2027","active")).text();
+  for(const [label,count] of [["Unknown Prospect",6],["Known Prospect",5],["Confirmed for Tryouts",5],["Overdue follow-ups",13],["Upcoming follow-ups",2],["Missing owners",2],["Missing next actions",3]])assert.match(first,new RegExp(`aria-label="${label} count">${count}<`));
+  assert.match(first,/Due today/);assert.match(first,/Today and later/);assert.match(first,/15<!-- --> events/);
+  assert.doesNotMatch(first,/Synthetic cross-season author|Synthetic excluded author|Synthetic Dashboard 16/);
+  assert.match(first,/season=2027&amp;overdue=2#overdue/);
+  const second=await(await get("/dashboard?season=2027&overdue=2&activity=2","active")).text();
+  assert.match(second,/Synthetic Dashboard 12/);assert.match(second,/Shared player facts/);
+  assert.match(second,/season=2027&amp;activity=2#overdue/);
+  const clamped=await(await get("/dashboard?season=2027&overdue=999999","active")).text();assert.match(clamped,/Synthetic Dashboard 12/);
+  const historical=await(await get("/dashboard?season=2026","active")).text();assert.match(historical,/Historical records are read-only/);assert.match(historical,/Synthetic Dashboard 16/);assert.match(historical,/Synthetic cross-season author/);assert.match(historical,/3<!-- --> events/);
+ }finally{restore();}
+});
+test("dashboard provider failure displays an error instead of invented zero counts",async()=>{
+ dashboardUnavailable=true;
+ try{const html=await(await get("/dashboard","active")).text();assert.match(html,/error|unavailable/i);assert.doesNotMatch(html,/No overdue follow-ups|Every prospect in this season/);}finally{dashboardUnavailable=false;}
+});
+test("hydrated dashboard navigates queues and historical context without mobile overflow",{skip:process.env.BLUEPRINT_BROWSER_QA!=="1",timeout:120_000},async()=>{
+ const restore=seedDashboard();const run=promisify(execFile);
+ const browser=async(...args:string[])=>(await run("npx",["--yes","agent-browser@0.38.1",...args],{env:{...process.env,AGENT_BROWSER_SESSION:"blueprint-phase4-ci"},timeout:40_000,maxBuffer:2_000_000})).stdout;
+ await mkdir(".qa",{recursive:true});
+ try {
+  await browser("open",appOrigin+"/login");const cookie=sessionCookie("active");const separator=cookie.indexOf("=");
+  await browser("cookies","set",cookie.slice(0,separator),cookie.slice(separator+1),"--url",appOrigin);
+  await browser("open",appOrigin+"/dashboard?season=2027");await browser("wait",'section[id="overdue"]');
+  const initial=await browser("snapshot");for(const title of ["Overdue follow-ups","Upcoming follow-ups","Missing owners","Missing next actions","Recent activity","Due today"])assert.ok(initial.includes(title),title);
+  await browser("screenshot",resolve(".qa/phase4-dashboard-desktop.png"));assert.ok((await stat(".qa/phase4-dashboard-desktop.png")).size>0);
+  await browser("click",'#overdue nav a');await browser("wait","--text","Synthetic Dashboard 12");assert.match(await browser("get","url"),/season=2027.*overdue=2/);
+  await browser("click",'#upcoming li a');await browser("wait",'select[name="stage"]');assert.match(await browser("get","url"),/prospects\/.*season=2027/);
+  await browser("open",appOrigin+"/dashboard?season=2026");await browser("wait","--text","Historical records are read-only");assert.match(await browser("snapshot"),/Synthetic Dashboard 16/);
+  await browser("set","viewport","390","844");await browser("open",appOrigin+"/dashboard?season=2027");await browser("wait",'#activity');
+  await browser("screenshot",resolve(".qa/phase4-dashboard-mobile.png"));assert.ok((await stat(".qa/phase4-dashboard-mobile.png")).size>0);
+  const dimensions=JSON.parse(await browser("eval","({width:innerWidth,scrollWidth:document.documentElement.scrollWidth})","--json")).data.result;assert.ok(dimensions.scrollWidth<=dimensions.width+1,JSON.stringify(dimensions));
+  assert.deepEqual(JSON.parse(await browser("errors","--json")).data.errors,[]);assert.doesNotMatch(await browser("console"),/hydration|Minified React|Uncaught/i);
+  dashboardUnavailable=true;await browser("open",appOrigin+"/dashboard");await browser("wait","--text","Something isn’t available right now.");assert.doesNotMatch(await browser("snapshot"),/No overdue follow-ups|Every prospect in this season/);
+ }finally{dashboardUnavailable=false;restore();await browser("close");}
 });

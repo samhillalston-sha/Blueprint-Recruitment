@@ -1,6 +1,6 @@
 # Blueprint Recruiting working agreement
 
-- Implement only the phase explicitly authorized by the user. Phase 1 access is deployed and user-confirmed; Phase 2 is merged and the user confirmed the deployed screens. Phase 3 recruiting workflow is authorized. Stop before Phase 4 and other later features.
+- Implement only the phase explicitly authorized by the user. Phase 1 access is deployed and user-confirmed; Phase 2 is merged and the user confirmed the deployed screens. Phase 3 recruiting workflow is merged. Phase 4 dashboard is authorized. Stop before Phase 5 and other later features.
 - Preserve the standard Next.js + Supabase stack and existing Vercel deployment. Inspect existing infrastructure; do not recreate it.
 - Google sign-in is the approved login method; no SMTP/domain purchase is required. Keep workspace access approval-only and fail closed. New Google Auth accounts default to inactive leadership profiles. Verify identities server-side, then check the current active leadership profile. Never authorize from user-editable metadata or an unverified session cookie.
 - Individual leadership Google accounts must represent individual authors. A team-owned Google account can own infrastructure, but shared application logins must not be the default onboarding model.
@@ -9,6 +9,7 @@
 - Do not invent recruiting counts or present placeholder screens as operational features.
 - Persistent prospect facts are shared across seasons; candidacies preserve distinct season membership. Reuse profiles rather than copying people. Historical seasons are read-only in the application. No client may delete or move history.
 - Recruiting workflow fields and qualitative three-year projections belong to a seasonal candidacy. Owner assignments require current active leadership; retain revoked owners in history. Database triggers log real important changes atomically with trusted authorship; clients cannot write or alter activity. Never fabricate retrospective events. Protect concurrent edits with the candidacy version.
+- Dashboard counts and queues stay within the selected season. Compare follow-up dates with today in UTC; today belongs to upcoming. Missing owners means unassigned; retain revoked assignments in history. Missing next actions includes whitespace-only text. Recent activity includes season events and shared facts for that season’s people. Paginate without inventing totals.
 - Ratings are shared with leadership even before a member submits their own. Position options are only Handler/Cutter. Keep recruiting stage separate from season outcome when future phases are authorized.
 - After changes, run `npm run test`, `npm run typecheck`, `npm run build`, and `npm run test:runtime`. Report unavailable checks honestly. Database changes also need hosted permission checks and Supabase advisors.
 - GitHub `samhillalston-sha/Blueprint-Recruitment` is the durable source of truth. Check current remote state before restoring or publishing from an ephemeral workspace.
