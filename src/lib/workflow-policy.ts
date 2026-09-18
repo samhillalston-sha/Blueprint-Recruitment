@@ -19,7 +19,7 @@ export const workflowSchema = z.object({
  projection_year_three: optionalText(1000),
 });
 export type WorkflowFacts = z.output<typeof workflowSchema>;
-export type Candidacy = WorkflowFacts & { id: string; prospect_id: string; season_id: string; created_at: string; updated_at: string; version: number };
+export type Candidacy = WorkflowFacts & { id: string; prospect_id: string; season_id: string; created_at: string; updated_at: string; version: number; outcome: string | null };
 export type RecruitingLeader = { id: string; full_name: string; is_active: boolean };
 export type WorkflowFormState = { error?: string; values?: Record<string,string> };
 export type WorkflowAction = (previous: WorkflowFormState, form: FormData) => Promise<WorkflowFormState>;
@@ -30,7 +30,7 @@ export type Activity = {
 export const fieldLabels: Record<string,string> = {
  athleticism:"Athleticism",offensive_ability:"Offensive Ability",defensive_ability:"Defensive Ability",coachability:"Coachability",on_field_vibes:"On Field Vibes",off_field_vibes:"Off Field Vibes",
  full_name: "Name", email: "Email", phone: "Phone", social_url: "Social / profile link", location: "Location", teams: "Teams", age: "Age", height_cm: "Height (cm)", position: "Position",
- stage: "Stage", priority: "Priority", owner_id: "Owner", next_action: "Next action", follow_up_date: "Follow-up date",
+ outcome: "Season outcome", stage: "Stage", priority: "Priority", owner_id: "Owner", next_action: "Next action", follow_up_date: "Follow-up date",
  projection_year_one: "Year 1 projection", projection_year_two: "Year 2 projection", projection_year_three: "Year 3 projection",
 };
 export const eventLabels = { prospect_created: "Prospect created", prospect_updated: "Player facts updated", season_added: "Added to season", workflow_updated: "Recruiting workflow updated", evaluation_submitted:"Evaluation submitted",evaluation_updated:"Evaluation updated" };

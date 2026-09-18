@@ -3,7 +3,7 @@ import { cache } from "react";
 import { requireLeadership } from "@/lib/auth/require-leadership";
 import type { Candidacy, RecruitingLeader, Activity } from "./workflow-policy";
 
-export const candidacyColumns = "id,prospect_id,season_id,created_at,updated_at,version,stage,priority,owner_id,next_action,follow_up_date,projection_year_one,projection_year_two,projection_year_three";
+export const candidacyColumns = "id,prospect_id,season_id,created_at,updated_at,version,outcome,stage,priority,owner_id,next_action,follow_up_date,projection_year_one,projection_year_two,projection_year_three";
 export const getRecruitingLeaders = cache(async (): Promise<RecruitingLeader[]> => {
  const { client } = await requireLeadership();
  const { data, error } = await client.rpc("recruiting_leaders");

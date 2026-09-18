@@ -16,6 +16,9 @@ import { evaluationPage } from "@/lib/evaluation-policy";
 import { Evaluations } from "@/components/evaluations";
 import { saveEvaluation } from "../evaluation-actions";
 import { addToSeason } from "../actions";
+import { OutcomeForm } from "@/components/history-forms";
+import { previousSeason, newSeasonTargets } from "@/lib/history-policy";
+import { saveOutcome } from "../history-actions";
 export const metadata = { title: "Prospect profile" };
 export default async function ProspectProfile({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ season?: string; activityPage?: string; evaluationPage?: string }> }) {
  const {user}=await requireLeadership();
@@ -27,6 +30,9 @@ export default async function ProspectProfile({ params, searchParams }: { params
  const [memberships, leaders, activity] = await Promise.all([getCandidacies(person.id),getRecruitingLeaders(),getActivity(person.id,page)]);
  const candidacy = memberships.find(row => row.season_id === season?.id);
  const evaluations = candidacy ? await getEvaluations(candidacy.id,evaluationPage(search.evaluationPage)) : null;
+ const priorSeason = season ? previousSeason(seasons,memberships.map(row=>row.season_id),season.year) : null;
+ const priorRecord = memberships.find(row=>row.season_id===priorSeason?.id);
+ const targets = season ? newSeasonTargets(seasons,memberships.map(row=>row.season_id),season.year) : [];
  const inSeason = memberships.some(row => row.season_id === season?.id);
  const query = season ? "?season=" + season.year : "";
  const facts = [["Email",person.email],["Phone",person.phone],["Location",person.location],["Teams",person.teams],["Position",person.position],["Age",person.age],["Height (cm)",person.height_cm]];
@@ -45,10 +51,14 @@ export default async function ProspectProfile({ params, searchParams }: { params
     : <dl className="grid gap-6 p-6 sm:grid-cols-2"><div><dt className="text-xs text-muted-foreground">Recruiting stage</dt><dd className="mt-2 text-sm">{candidacy.stage}</dd></div><div><dt className="text-xs text-muted-foreground">Priority</dt><dd className="mt-2 text-sm">{candidacy.priority ?? "Not set"}</dd></div><div><dt className="text-xs text-muted-foreground">Owner</dt><dd className="mt-2 text-sm">{leaders.find(leader => leader.id === candidacy.owner_id)?.full_name || "Unassigned"}</dd></div><div><dt className="text-xs text-muted-foreground">Follow-up date</dt><dd className="mt-2 text-sm">{candidacy.follow_up_date ?? "Not set"}</dd></div><div className="sm:col-span-2"><dt className="text-xs text-muted-foreground">Next action</dt><dd className="mt-2 whitespace-pre-wrap break-words text-sm">{candidacy.next_action ?? "Not set"}</dd></div>{(["projection_year_one","projection_year_two","projection_year_three"] as const).map((key,index) => <div key={key}><dt className="text-xs text-muted-foreground">{season.year+index} · Year {index+1} projection</dt><dd className="mt-2 whitespace-pre-wrap break-words text-sm">{candidacy[key] ?? "Not set"}</dd></div>)}</dl>}
    {season.status === "active" && candidacy.follow_up_date && <p className="border-t border-border px-6 py-4 text-xs text-muted-foreground">{followUpStatus(candidacy.follow_up_date)} · {candidacy.follow_up_date} (UTC calendar date)</p>}
   </section>}
+  {candidacy && season && <section className="panel"><div className="section-heading"><h2>Season outcome · {season.name}</h2><span className="text-xs text-muted-foreground">Separate from recruiting stage</span></div>{season.status === "active" ? <OutcomeForm outcome={candidacy.outcome} saveAction={saveOutcome.bind(null,person.id,season.id,candidacy.id,candidacy.version)}/> : <p className="p-6 text-sm">{candidacy.outcome??"Not set"} · Historical, read-only</p>}</section>}
+  {priorSeason && priorRecord && <section className="panel"><div className="section-heading"><h2>Previous recorded season · {priorSeason.year}</h2></div><div className="space-y-3 p-6"><p className="text-sm">Stage: {priorRecord.stage}</p><p className="text-sm">Outcome: {priorRecord.outcome??"Not set"}</p><Link className="text-sm text-primary underline" href={"/prospects/"+person.id+"?season="+priorSeason.year}>View {priorSeason.year} workflow, projections and evaluations</Link></div></section>}
   <section className="panel"><div className="section-heading"><h2>Season history</h2></div><div className="space-y-4 p-6">
    <p className="text-sm">{inSeason ? "Included in " : "Not included in "}{season?.name ?? "a selected season"}.</p>
    {!inSeason && season?.status === "active" && <AddToSeason addAction={addToSeason.bind(null,person.id,season.id)} />}
-   <ul className="space-y-3">{seasons.filter(item => memberships.some(row => row.season_id === item.id)).map(item => <li key={item.id}><Link className="text-sm font-semibold text-primary underline" href={"/prospects/" + person.id + "?season=" + item.year}>{item.name}</Link><span className="ml-3 text-xs text-muted-foreground">{item.status === "closed" ? "Historical" : "Active"} · {memberships.find(row => row.season_id === item.id)?.stage}</span></li>)}</ul>
+   <ul className="space-y-3">{seasons.filter(item => memberships.some(row => row.season_id === item.id)).map(item => <li key={item.id}><Link className="text-sm font-semibold text-primary underline" href={"/prospects/" + person.id + "?season=" + item.year}>{item.name}</Link><span className="ml-3 text-xs text-muted-foreground">{item.status === "closed" ? "Historical" : "Active"} · {memberships.find(row => row.season_id === item.id)?.stage} · Outcome: {memberships.find(row => row.season_id === item.id)?.outcome??"Not set"}</span></li>)}</ul>
+   {targets.length > 0 && <div className="space-y-4 border-t border-border pt-4"><h3 className="text-sm font-semibold">Add to a new season</h3><p className="text-sm text-muted-foreground">Reuse this person’s shared facts. The new season starts with an unknown stage and no owner, outcome, actions, projections or evaluations.</p>{targets.map(target=><div key={target.id}><p className="mb-2 text-sm font-semibold">{target.name}</p><AddToSeason label={"Add to "+target.year} addAction={addToSeason.bind(null,person.id,target.id)}/></div>)}</div>}
+   {season?.status === "closed" && !targets.length && <p className="text-sm text-muted-foreground">To recruit this person again, <Link className="text-primary underline" href="/settings">start a new season in settings</Link>, or select an active season already in their history.</p>}
    {!memberships.length && <p className="text-sm text-muted-foreground">No season records yet.</p>}
   </div></section>
   {candidacy && season && evaluations && <Evaluations summary={evaluations} userId={user.id} seasonName={season.name} profileUrl={"/prospects/"+person.id+"?season="+season.year} saveAction={season.status === "active" ? saveEvaluation.bind(null,person.id,season.id,candidacy.id,evaluations.own?.version??0) : undefined}/>}

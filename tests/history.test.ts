@@ -1,0 +1,10 @@
+import {test} from "node:test";
+import assert from "node:assert/strict";
+import {outcomes,outcomeSchema,seasonYearSchema,previousSeason,newSeasonTargets} from "../src/lib/history-policy";
+import {selectSeason,type Season} from "../src/lib/season-policy";
+const seasons:Season[]=[{id:"new",name:"2029 Season",year:2029,status:"active",is_current:true},{id:"past",name:"2026 Season",year:2026,status:"closed",is_current:false},{id:"old",name:"2024 Season",year:2024,status:"closed",is_current:false},{id:"current",name:"2028 Season",year:2028,status:"active",is_current:false}];
+test("all seven outcomes are explicit and distinct from recruiting stages",()=>{for(const outcome of outcomes)assert.equal(outcomeSchema.parse(outcome),outcome);assert.equal(outcomeSchema.parse(""),null);for(const invalid of ["Confirmed for Tryouts","Cut",null,undefined])assert.equal(outcomeSchema.safeParse(invalid).success,false);});
+test("previous season uses the nearest earlier membership across gaps",()=>{assert.equal(previousSeason(seasons,["old","past"],2029)?.year,2026);assert.equal(previousSeason(seasons,["old","past"],2026)?.year,2024);assert.equal(previousSeason(seasons,["new"],2028),null);});
+test("new season targets exclude closed, earlier and already joined seasons",()=>{assert.deepEqual(newSeasonTargets(seasons,["new","past"],2026).map(s=>s.year),[2028]);assert.deepEqual(newSeasonTargets(seasons,[],2029),[]);});
+test("without a current season selection prefers remaining active seasons",()=>{assert.equal(selectSeason(seasons.map(s=>({...s,is_current:false})))?.year,2029);assert.equal(selectSeason(seasons.map(s=>({...s,is_current:false})),"2026")?.year,2026);});
+test("season years reject fractions, malformed values and out-of-range input",()=>{assert.equal(seasonYearSchema.parse("2028"),2028);for(const invalid of ["1999","2101","2028.5","2e3"," 2028",null])assert.equal(seasonYearSchema.safeParse(invalid).success,false);});

@@ -1,4 +1,4 @@
-# Setup — existing Google sign-in and Phase 5
+# Setup — existing Google sign-in and Phase 6
 
 ## Existing infrastructure
 
@@ -103,4 +103,17 @@ Open a prospect in an active season, choose 1–5 or N/A for all six attributes,
 
 Averages exclude N/A and show each attribute's rated/N/A counts. The comparison table displays individual scores and trusted evaluator-name snapshots; it scrolls within its container on mobile and is paginated at 25 evaluators. Summary averages include all submitted evaluations, including former evaluators, independently of pagination. Names are captured at submission; full leadership profiles and emails remain own-only. Database triggers log rating changes atomically and suppress no-op events.
 
-Verify hosted permissions with `tests/phase-five-access.sql` alongside the Phase 1–4 scripts. Every fixture is synthetic and rolls back. Merge the Phase 5 PR to deploy using the existing GitHub/Vercel integration. Stop before Phase 6.
+Verify hosted permissions with `tests/phase-five-access.sql` alongside the Phase 1–4 scripts. Every fixture is synthetic and rolls back. Merge the Phase 5 PR to deploy using the existing GitHub/Vercel integration. The user subsequently authorized Phase 6.
+
+
+## Phase 6 historical continuity
+
+Additive CLI-created migration `20260918013604_phase_six_historical_continuity.sql` is applied to the same existing Supabase project. Do not reapply it or recreate infrastructure. It adds nullable candidacy outcomes and nullable trusted season-closure metadata, extends the existing atomic activity logger, and provides authenticated-only security-invoker `start_season` / `close_season` wrappers around narrowly guarded private helpers. Existing RLS and direct season-write restrictions remain. No new environment variables are required.
+
+On a prospect profile, save an outcome separately from recruiting stage. Blank means not recorded. Previous recorded season context links to historical workflow, projections and evaluations; facts remain shared current values. Outcome and workflow forms share the candidacy version, so saving one makes any already-open older form stale; reload before saving that form.
+
+In Settings, start a later season to create an empty active current season. Other seasons remain active until explicitly closed. To close an active season, type its exact year and click its Close button. Closure records the acting leader’s ID/name and UTC timestamp, waits for in-flight seasonal writes, then blocks further seasonal changes. Missing outcomes remain unset; nothing is removed, cleared or copied. Closed seasons have no app reopen action. The original historical season keeps an unknown closure date/author. If the current season closes, the default selection prefers the latest remaining active season; if none remain, it uses the latest historical season.
+
+To recruit someone again, open an earlier profile and use Add to [later year]. It reuses their person record and creates only a fresh membership; workflow, outcomes, projections and evaluations start empty. Membership uniqueness makes repeated requests safe. You can also select an active season and use the existing Add to this season button. If no eligible new season exists, the historical profile links to Settings.
+
+Run `tests/phase-six-access.sql` and the Phase 1–5 permission scripts; all fixtures are synthetic and rolled back. Phase 6 is based on the unmerged Phase 5 branch: merge PR #4 first, then merge the dependent Phase 6 PR after its checks pass. Deployment uses the existing GitHub/Vercel integration. Stop before Phase 7.
