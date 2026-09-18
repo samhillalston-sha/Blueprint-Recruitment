@@ -615,12 +615,12 @@ test("hydrated dashboard navigates queues and historical context without mobile 
   await browser("cookies","set",cookie.slice(0,separator),cookie.slice(separator+1),"--url",appOrigin);
   await browser("open",appOrigin+"/dashboard?season=2027");await browser("wait",'section[id="overdue"]');
   const initial=await browser("snapshot");for(const title of ["Overdue follow-ups","Upcoming follow-ups","Missing owners","Missing next actions","Recent activity","Due today"])assert.ok(initial.includes(title),title);
-  await browser("screenshot",resolve(".qa/phase4-dashboard-desktop.png"));assert.ok((await stat(".qa/phase4-dashboard-desktop.png")).size>0);
+  await browser("screenshot",resolve(".qa/phase4-dashboard-desktop.png"),"--full");assert.ok((await stat(".qa/phase4-dashboard-desktop.png")).size>0);
   await browser("click",'#overdue nav a');await browser("wait","--text","Synthetic Dashboard 12");assert.match(await browser("get","url"),/season=2027.*overdue=2/);
   await browser("click",'#upcoming li:first-child a');await browser("wait",'select[name="stage"]');assert.match(await browser("get","url"),/prospects\/.*season=2027/);
   await browser("open",appOrigin+"/dashboard?season=2026");await browser("wait","--text","Historical records are read-only");assert.match(await browser("snapshot"),/Synthetic Dashboard 16/);
   await browser("set","viewport","390","844");await browser("open",appOrigin+"/dashboard?season=2027");await browser("wait",'#activity');
-  await browser("screenshot",resolve(".qa/phase4-dashboard-mobile.png"));assert.ok((await stat(".qa/phase4-dashboard-mobile.png")).size>0);
+  await browser("screenshot",resolve(".qa/phase4-dashboard-mobile.png"),"--full");assert.ok((await stat(".qa/phase4-dashboard-mobile.png")).size>0);
   const dimensions=JSON.parse(await browser("eval","({width:innerWidth,scrollWidth:document.documentElement.scrollWidth})","--json")).data.result;assert.ok(dimensions.scrollWidth<=dimensions.width+1,JSON.stringify(dimensions));
   assert.deepEqual(JSON.parse(await browser("errors","--json")).data.errors,[]);assert.doesNotMatch(await browser("console"),/hydration|Minified React|Uncaught/i);
   dashboardUnavailable=true;await browser("open",appOrigin+"/dashboard");await browser("wait","--text","Something isn’t available right now.");assert.doesNotMatch(await browser("snapshot"),/No overdue follow-ups|Every prospect in this season/);
