@@ -2,7 +2,7 @@
 
 A private recruiting workspace for NYC Blueprint leadership. It keeps recruiting memory in one place, with individual Google sign-in and manually approved leadership access.
 
-## Current scope — Phase 5
+## Current scope — Phase 6
 
 Phase 1 is deployed at https://blueprint-recruitment.vercel.app. The user confirmed Google sign-in, manual approval, and dashboard access on September 17, 2026.
 
@@ -25,7 +25,9 @@ Phase 3 is merged in PR #2. Phase 4 adds the selected-season dashboard: stage co
 
 Phase 4 is merged in PR #3. Phase 5 adds one evaluation per leader per seasonal prospect, editable by its author while the season is active. Six attributes use 1–5 (5 highest) or explicit N/A: Athleticism, Offensive Ability, Defensive Ability, Coachability, On Field Vibes, and Off Field Vibes. Individual ratings and attribute averages are visible before your own submission. N/A is excluded from averages; each attribute shows its numeric rating count and N/A count. A paginated evaluator comparison table retains former evaluators and historical seasons. Important rating edits are logged automatically, and stale tabs cannot overwrite newer scores.
 
-Notes, manual interaction entries, outcomes, imports, AI, and tryout/roster management remain outside scope. Stop before Phase 6.
+Phase 6 adds seven optional seasonal outcomes, previous-recorded-season context and links to preserved workflow/evaluations, confirmed season closure, and adding the same person to a later season with fresh seasonal fields. Settings lets approved leadership start an empty later current season and close an active season by typing its year. Closing records a trusted author/time, freezes seasonal edits in the database, preserves unknown outcomes and all history, and does not change shared person facts. New seasons do not copy workflow or evaluations. Earlier closed seasons retain unknown closure dates/authors.
+
+Phase 5 PR #4 must merge before the dependent Phase 6 PR. Notes, manual interaction entries, imports, AI, and tryout/roster management remain outside scope. Stop before Phase 7.
 
 ## Development and verification
 

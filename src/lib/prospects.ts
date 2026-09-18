@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { requireLeadership } from "@/lib/auth/require-leadership";
 import { isUuid, escapeSearch, type Prospect } from "./prospect-policy";
 import type { Candidacy } from "./workflow-policy";
-export type ListedProspect = Prospect & { candidacies?: Pick<Candidacy,"season_id" | "stage" | "priority" | "owner_id" | "next_action" | "follow_up_date">[] };
+export type ListedProspect = Prospect & { candidacies?: Pick<Candidacy,"season_id" | "outcome" | "stage" | "priority" | "owner_id" | "next_action" | "follow_up_date">[] };
 
 export const prospectColumns = "id,full_name,email,phone,social_url,location,teams,age,height_cm,position,created_at,updated_at";
 export async function getProspect(id: string) {
@@ -16,7 +16,7 @@ export async function getProspect(id: string) {
 }
 export async function listProspects(seasonId: string | null, search: string, page: number, all: boolean) {
  const { client } = await requireLeadership();
- const fields = "season_id,stage,priority,owner_id,next_action,follow_up_date";
+ const fields = "season_id,outcome,stage,priority,owner_id,next_action,follow_up_date";
  const selection = prospectColumns + (all ? ",candidacies(" : ",candidacies!inner(") + fields + ")";
  let query = client.from("prospects").select(selection, { count: "exact" });
  if (!all) {
