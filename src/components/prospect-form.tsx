@@ -30,7 +30,7 @@ export function ProspectForm({ prospect, saveAction, year }: { prospect?: Prospe
    <Button asChild variant="outline"><Link href={prospect ? "/prospects/" + prospect.id + "?season=" + year : "/prospects?season=" + year}>Cancel</Link></Button></div>
  </form>;
 }
-export function AddToSeason({ addAction }: { addAction: ProspectAction }) {
+export function AddToSeason({ addAction, label = "Add to this season" }: { addAction: ProspectAction; label?: string }) {
  const [state, action, pending] = useActionState(addAction, {} as ProspectFormState);
- return <form action={action}><Button type="submit" disabled={pending}>{pending ? "Adding…" : "Add to this season"}</Button>{state.error && <p role="alert" className="mt-3 text-sm text-red-700">{state.error}</p>}</form>;
+ return <form action={action}><Button type="submit" disabled={pending}>{pending ? "Adding…" : label}</Button>{state.error && <p role="alert" className="mt-3 text-sm text-red-700">{state.error}</p>}</form>;
 }

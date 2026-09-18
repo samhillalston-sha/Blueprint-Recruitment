@@ -11,3 +11,12 @@ supabase/.branches/
 data/private/
 *.log
 .qa/
+
+# Generated standalone demo; rebuilt for dev, CI and deployment.
+public/demo/
+__pycache__/
+*.pyc
+# All private import inputs and outputs stay out of source.
+*.private.csv
+*.private.json
+*.private.sql

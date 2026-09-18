@@ -14,14 +14,14 @@ const ids = {
   inactive: "bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb",
   missing: "cccccccc-cccc-4ccc-cccc-cccccccccccc",
 };
-const seasons = [
+const seasons: Array<{id:string;name:string;year:number;is_current:boolean;status:string;closed_at?:string|null;closed_by_name?:string|null}> = [
   { id: "dddddddd-dddd-4ddd-addd-dddddddddddd", name: "2027 Season", year: 2027, is_current: true, status: "active" },
   { id: "eeeeeeee-eeee-4eee-aeee-eeeeeeeeeeee", name: "2026 Season", year: 2026, is_current: false, status: "closed" },
 ];
 const syntheticId = "ffffffff-ffff-4fff-afff-ffffffffffff";
 const syntheticCandidacyId = "99999999-9999-4999-a999-999999999999";
 const ownerId = "88888888-8888-4888-a888-888888888888";
-const workflowDefaults = {stage:"Unknown Prospect",priority:null,owner_id:null,next_action:null,follow_up_date:null,projection_year_one:null,projection_year_two:null,projection_year_three:null,version:1,updated_at:"2026-09-17T00:00:00Z"};
+const workflowDefaults = {outcome:null,stage:"Unknown Prospect",priority:null,owner_id:null,next_action:null,follow_up_date:null,projection_year_one:null,projection_year_two:null,projection_year_three:null,version:1,updated_at:"2026-09-17T00:00:00Z"};
 function membership(values: Record<string,unknown>) { return {...workflowDefaults,id:syntheticCandidacyId,prospect_id:syntheticId,season_id:seasons[0].id,created_at:"2026-09-17T00:00:00Z",...values}; }
 let people = [{ id: syntheticId, full_name: "Synthetic Prospect", normalized_name: "synthetic prospect", email: null, phone: null, social_url: null, location: "Synthetic City", teams: null, age: null, height_cm: null, position: null, created_at: "2026-09-17T00:00:00Z", updated_at: "2026-09-17T00:00:00Z" }] as Array<Record<string, unknown>>;
 let memberships = [membership({})] as Array<Record<string,unknown>>;
@@ -103,6 +103,20 @@ before(async () => {
       // maybeSingle requests array representation, converted by postgrest-js.
       response.end(JSON.stringify(row ? [row] : [])); return;
     }
+    if (url.pathname === "/rest/v1/rpc/start_season" || url.pathname === "/rest/v1/rpc/close_season") {
+      let body="";request.on("data",chunk=>{body+=String(chunk);});request.on("end",()=>{
+       const args=JSON.parse(body);
+       if(id!==ids.active||revoked){response.statusCode=403;response.end('{"message":"Approval required"}');return;}
+       if(url.pathname.endsWith("start_season")) {
+        if(!Number.isInteger(args.p_year)||args.p_year>2100||seasons.some(s=>s.year>=args.p_year)){response.statusCode=400;response.end('{"message":"Year unavailable"}');return;}
+        seasons.forEach(s=>{s.is_current=false;});const row={id:"22222222-2222-4222-a222-222222222222",year:args.p_year,name:args.p_year+" Season",status:"active",is_current:true};seasons.unshift(row);response.end(JSON.stringify(row.id));
+       }else{
+        const row=seasons.find(s=>s.id===args.p_season_id);
+        if(!row||row.year!==args.p_confirm_year){response.statusCode=400;response.end('{"message":"Year confirmation mismatch"}');return;}
+        if(row.status!=="closed")Object.assign(row,{status:"closed",is_current:false,closed_at:new Date().toISOString(),closed_by_name:"Synthetic Captain"});response.end(JSON.stringify(row.id));
+       }
+      });return;
+    }
     if (url.pathname === "/rest/v1/seasons") {
       const selected = url.searchParams.get("id")?.replace(/^eq\./,"");
       response.end(JSON.stringify(id === ids.active && !revoked ? seasons.filter(item => !selected || item.id === selected) : [])); return;
@@ -132,7 +146,10 @@ before(async () => {
     if (url.pathname === "/rest/v1/candidacies") {
       if (request.method === "POST") {
         let body="";request.on("data",chunk=>{body+=String(chunk);});request.on("end",()=>{
-          const values=JSON.parse(body);prospectWrites++;
+          const values=JSON.parse(body);
+          if(memberships.some(row=>row.prospect_id===values.prospect_id&&row.season_id===values.season_id)){response.statusCode=409;response.end('{"code":"23505"}');return;}
+          if(!seasons.some(row=>row.id===values.season_id&&row.status==="active")){response.statusCode=403;response.end('{"message":"Closed"}');return;}
+          prospectWrites++;
           memberships.push(membership({...values,id:"77777777-7777-4777-a777-777777777777"}));recordActivity(values.prospect_id,values.season_id,"season_added",{},workflowDefaults,["stage"]);response.statusCode=201;response.end("");
         });return;
       }
@@ -745,4 +762,92 @@ test("hydrated evaluations submit N/A, edit ratings and display comparison witho
   const layout=JSON.parse(await browser("eval","({width:innerWidth,scrollWidth:document.documentElement.scrollWidth,tableWidth:document.querySelector('[aria-label=\"Individual evaluations comparison table\"]').scrollWidth})","--json")).data.result;assert.ok(layout.scrollWidth<=layout.width+1,JSON.stringify(layout));assert.ok(layout.tableWidth>layout.width,"Comparison scrolls within its container");
   assert.deepEqual(JSON.parse(await browser("errors","--json")).data.errors,[]);assert.doesNotMatch(await browser("console"),/hydration|Minified React|Uncaught/i);
  }finally{restore();await browser("close");}
+});
+
+// Phase 6 continuity: real server actions, synthetic provider and isolated records.
+async function postNative(form:FormData,path:string,kind:keyof typeof ids="active") {return fetch(appOrigin+path,{method:"POST",body:form,headers:{Cookie:sessionCookie(kind),Origin:appOrigin},redirect:"manual"});}
+function seedHistory() {
+ const saved={seasons:seasons.map(row=>({...row})),people:people.map(row=>({...row})),memberships:memberships.map(row=>({...row})),evaluations:evaluations.map(row=>({...row})),activity:activity.map(row=>({...row}))};
+ memberships=[membership({}),membership({id:"33333333-3333-4333-a333-333333333333",season_id:seasons.find(s=>s.year===2026)!.id,stage:"Confirmed for Tryouts",outcome:"Cut–Encourage to Return",owner_id:ownerId,projection_year_one:"Synthetic previous outlook"})];
+ evaluations=[];activity=[];
+ return ()=>{seasons.splice(0,seasons.length,...saved.seasons);people=saved.people;memberships=saved.memberships;evaluations=saved.evaluations;activity=saved.activity;};
+}
+test("season outcomes save separately, log trusted changes, reject stale edits and preserve history",async()=>{
+ const restore=seedHistory();try{
+ const path="/prospects/"+syntheticId+"?season=2027";const html=await(await get(path,"active")).text();assert.match(html,/Previous recorded season/);assert.match(html,/Cut–Encourage to Return/);
+ const form=formFromHtml(html,'name="outcome"');form.set("outcome","Rostered");const stale=formFromHtml(html,'name="outcome"');stale.set("outcome","Practice Player");
+ const response=await postNative(form,path);assert.equal(response.status,303);assert.equal(memberships[0].stage,"Unknown Prospect");assert.equal(memberships[0].outcome,"Rostered");assert.equal(memberships[1].outcome,"Cut–Encourage to Return");assert.equal(activity[0].actor_name,"Synthetic Captain");assert.deepEqual((activity[0].changes as Record<string,unknown>).outcome,{from:null,to:"Rostered"});
+ const denied=await postNative(stale,path);assert.match(await denied.text(),/Reload the profile/);assert.equal(memberships[0].outcome,"Rostered");
+ const invalid=formFromHtml(await(await get(path,"active")).text(),'name="outcome"');invalid.set("outcome","Confirmed for Tryouts");assert.match(await(await postNative(invalid,path)).text(),/valid season outcome/);
+ }finally{restore();}
+});
+test("starting and closing seasons preserves records, confirms the year and freezes captured forms",async()=>{
+ const restore=seedHistory();try{
+ const profilePath="/prospects/"+syntheticId+"?season=2027";const outcome=formFromHtml(await(await get(profilePath,"active")).text(),'name="outcome"');outcome.set("outcome","Rostered");
+ const workflow=await workflowForm();const evaluation=await evaluationForm();const settings=await(await get("/settings","active")).text();
+ const wrong=formFromHtml(settings,'name="confirm_year"');wrong.set("confirm_year","2026");assert.match(await(await postNative(wrong,"/settings")).text(),/exact season year/);assert.equal(seasons[0].status,"active");
+ const start=formFromHtml(settings,'name="new_season_year"');start.set("new_season_year","2028");assert.equal((await postNative(start,"/settings")).status,303);assert.equal(seasons[0].year,2028);assert.equal(seasons[0].is_current,true);assert.equal(seasons.find(s=>s.year===2027)!.status,"active");
+ const close=formFromHtml(settings,'name="confirm_year"');close.set("confirm_year","2027");assert.equal((await postNative(close,"/settings")).status,303);const closed=seasons.find(s=>s.year===2027)!;assert.equal(closed.status,"closed");assert.equal(closed.closed_by_name,"Synthetic Captain");assert.ok(closed.closed_at);assert.equal(memberships[0].outcome,null);
+ assert.match(await(await postNative(outcome,profilePath)).text(),/Historical seasons are read-only/);assert.match(await(await postWorkflow(workflow,{})).text(),/Historical seasons are read-only/);assert.match(await(await postEvaluation(evaluation,{})).text(),/Historical seasons are read-only/);
+ const history=await(await get(profilePath,"active")).text();assert.doesNotMatch(history,/<select name="outcome"/);assert.doesNotMatch(history,/Submit evaluation|Save recruiting details/);assert.equal(memberships.length,2);
+ }finally{restore();}
+});
+test("historical profile adds the same person to a new season with fresh fields and idempotent membership",async()=>{
+ const restore=seedHistory();try{
+ memberships=memberships.filter(row=>row.season_id===seasons[1].id);const beforePeople=people.length;const old=JSON.stringify(memberships[0]);
+ const path="/prospects/"+syntheticId+"?season=2026";const html=await(await get(path,"active")).text();assert.match(html,/Add to 2027/);
+ const form=formFromHtml(html,"Add to 2027");const response=await postNative(form,path);assert.equal(response.status,303);assert.match(response.headers.get("location")!,/season=2027/);assert.equal(people.length,beforePeople);assert.equal(memberships.length,2);assert.equal(JSON.stringify(memberships[0]),old);
+ const fresh=memberships[1];assert.equal(fresh.prospect_id,syntheticId);assert.equal(fresh.stage,"Unknown Prospect");for(const key of ["outcome","owner_id","priority","next_action","follow_up_date","projection_year_one","projection_year_two","projection_year_three"])assert.equal(fresh[key],null);assert.equal(evaluations.length,0);
+ assert.equal((await postNative(form,path)).status,303);assert.equal(memberships.length,2);assert.doesNotMatch(await(await get(path,"active")).text(),/Add to 2027/);
+ }finally{restore();}
+});
+test("season management and outcome actions reject revoked and inactive leadership",async()=>{
+ const restore=seedHistory();try{
+ const settings=await(await get("/settings","active")).text();const form=formFromHtml(settings,'name="new_season_year"');form.set("new_season_year","2028");revoked=true;
+ try{const response=await postNative(form,"/settings");assert.equal(new URL(response.headers.get("location")!,appOrigin).pathname,"/login");}finally{revoked=false;}
+ const response=await postNative(form,"/settings","inactive");assert.equal(new URL(response.headers.get("location")!,appOrigin).pathname,"/login");assert.equal(seasons.length,2);
+ const path="/prospects/"+syntheticId+"?season=2027";const outcome=formFromHtml(await(await get(path,"active")).text(),'name="outcome"');outcome.set("outcome","Rostered");const denied=await postNative(outcome,path,"inactive");assert.equal(new URL(denied.headers.get("location")!,appOrigin).pathname,"/login");assert.equal(memberships[0].outcome,null);
+ }finally{restore();}
+});
+test("hydrated historical continuity saves an outcome, starts and closes a season, then reuses a person",{skip:process.env.BLUEPRINT_BROWSER_QA!=="1",timeout:120_000},async()=>{
+ const restore=seedHistory();const run=promisify(execFile);const browser=async(...args:string[])=>(await run("npx",["--yes","agent-browser@0.38.1",...args],{env:{...process.env,AGENT_BROWSER_SESSION:"blueprint-phase6-ci"},timeout:40_000,maxBuffer:2_000_000})).stdout;
+ await mkdir(".qa",{recursive:true});try{
+ await browser("open",appOrigin+"/login");const cookie=sessionCookie("active");const separator=cookie.indexOf("=");await browser("cookies","set",cookie.slice(0,separator),cookie.slice(separator+1),"--url",appOrigin);
+ await browser("open",appOrigin+"/prospects/"+syntheticId+"?season=2027");await browser("wait",'select[name="outcome"]');await browser("select",'select[name="outcome"]',"Practice Player");await browser("find","role","button","click","--name","Save outcome");await browser("wait","--text","Recruiting workflow updated");assert.equal(memberships[0].outcome,"Practice Player");
+ await browser("open",appOrigin+"/settings");await browser("fill",'input[name="new_season_year"]',"2028");await browser("find","role","button","click","--name","Start new season");await browser("wait","--url","**/dashboard?season=2028");assert.equal(seasons[0].year,2028);
+ await browser("open",appOrigin+"/settings");await browser("fill",'input[placeholder="2027"]',"2027");await browser("find","role","button","click","--name","Close 2027 season");await browser("wait","--text","UTC by Synthetic Captain");assert.equal(seasons.find(s=>s.year===2027)!.status,"closed");
+ await browser("open",appOrigin+"/prospects/"+syntheticId+"?season=2027");await browser("wait","--text","Historical season");assert.doesNotMatch(await browser("snapshot","-i"),/Save outcome|Save recruiting details|Submit evaluation/);await browser("find","role","button","click","--name","Add to 2028");await browser("wait","--url","**/prospects/"+syntheticId+"?season=2028");await browser("wait",'select[name="outcome"]');assert.equal(memberships.find(row=>row.season_id===seasons[0].id)!.outcome,null);assert.match(await browser("snapshot"),/Practice Player|Previous recorded season/);
+ await browser("screenshot",resolve(".qa/phase6-continuity-desktop.png"),"--full");await browser("set","viewport","390","844");await browser("open",appOrigin+"/settings");await browser("wait",'input[name="new_season_year"]');await browser("screenshot",resolve(".qa/phase6-seasons-mobile.png"),"--full");assert.ok((await stat(".qa/phase6-continuity-desktop.png")).size>0);assert.ok((await stat(".qa/phase6-seasons-mobile.png")).size>0);
+ const layout=JSON.parse(await browser("eval","({width:innerWidth,scrollWidth:document.documentElement.scrollWidth})","--json")).data.result;assert.ok(layout.scrollWidth<=layout.width+1,JSON.stringify(layout));assert.deepEqual(JSON.parse(await browser("errors","--json")).data.errors,[]);assert.doesNotMatch(await browser("console"),/hydration|Minified React|Uncaught/i);
+ }finally{restore();await browser("close");}
+});
+
+// Static demo does not enter either Auth or the private provider, even anonymously.
+test('anonymous synthetic demo assets never query the private provider or grant workspace access',async()=>{
+ const before=validatedIdentities;
+ for(const path of ['/demo/index.html','/demo/app.mjs','/demo/data.mjs','/demo/style.css']) {
+  const response=await get(path);assert.equal(response.status,200,path);const source=await response.text();assert.doesNotMatch(source,/sb_publishable_|sb_secret_|Synthetic Captain/);
+ }
+ const entry=await get('/demo');assert.equal(entry.status,307);assert.equal(new URL(entry.headers.get('location')!,appOrigin).pathname,'/demo/index.html');
+ assert.equal(validatedIdentities,before,'Static demo must not call Auth');
+ const denied=await get('/dashboard');assert.equal(new URL(denied.headers.get('location')!,appOrigin).pathname,'/login');
+});
+test('the portfolio demo contains ten fictional people, separate historical data and no private data routes',async()=>{
+ const html=await(await get('/demo/index.html')).text();assert.match(html,/Synthetic demo|SYNTHETIC PORTFOLIO DEMO/);assert.match(html,/Every person and rating is invented/);
+ const source=await(await get('/demo/data.mjs')).text();const data=JSON.parse(source.replace(/^export const demoData = /,'').replace(/;\n$/,''));assert.equal(data.prospects.length,10);assert.equal(data.prospects[0].seasons[1].status,'closed');assert.equal(data.prospects[0].seasons[1].outcome,'Cut–Encourage to Return');assert.equal(data.prospects[0].seasons[0].outcome,null);
+});
+test('hydrated anonymous demo navigates counts, search, N/A comparisons and history without backend access',{skip:process.env.BLUEPRINT_BROWSER_QA!=='1',timeout:120_000},async()=>{
+ const run=promisify(execFile);const browser=async(...args:string[])=>(await run('npx',['--yes','agent-browser@0.38.1',...args],{env:{...process.env,AGENT_BROWSER_SESSION:'blueprint-phase7-demo-ci'},timeout:40_000,maxBuffer:2_000_000})).stdout;
+ const before=validatedIdentities;await mkdir('.qa',{recursive:true});try{
+  await browser('open',appOrigin+'/demo/');await browser('wait','main .metrics');assert.match(await browser('snapshot'),/Synthetic demo|Every person and rating is invented/);
+  const counts=JSON.parse(await browser('eval',"Array.from(document.querySelectorAll('.metrics strong')).map(item=>Number(item.textContent))",'--json')).data.result;assert.deepEqual(counts,[4,3,3]);
+  await browser('screenshot',resolve('.qa/phase7-demo-desktop.png'),'--full');
+  await browser('click','nav a[href="#prospects"]');await browser('wait','#search');await browser('fill','#search','Demo Prospect 01');assert.doesNotMatch(await browser('get','text','main table'),/Demo Prospect 02/);
+  await browser('find','role','link','click','--name','Demo Prospect 01');await browser('wait','.averages');assert.match(await browser('get','text','.averages .average:first-child'),/3.50/);assert.match(await browser('snapshot'),/N\/A|Previous recorded season/);
+  await browser('select','#season','2026');assert.match(await browser('snapshot'),/Cut–Encourage to Return/);assert.match(await browser('get','text','.averages .average:first-child'),/3.00/);assert.doesNotMatch(await browser('snapshot','-i'),/Save outcome|Submit evaluation|Edit prospect/);
+  await browser('set','viewport','390','844');await browser('screenshot',resolve('.qa/phase7-demo-mobile.png'),'--full');
+  const layout=JSON.parse(await browser('eval','({width:innerWidth,scrollWidth:document.documentElement.scrollWidth})','--json')).data.result;assert.ok(layout.scrollWidth<=layout.width+1,JSON.stringify(layout));
+  const resources=JSON.parse(await browser('eval',"performance.getEntriesByType('resource').map(item=>item.name)",'--json')).data.result;assert.ok(resources.every((url:string)=>!url.includes('/rest/v1')&&!url.includes('/auth/v1')&&!url.includes('supabase')));assert.equal(validatedIdentities,before);
+  assert.deepEqual(JSON.parse(await browser('errors','--json')).data.errors,[]);assert.doesNotMatch(await browser('console'),/Uncaught|hydration|Minified React/i);assert.ok((await stat('.qa/phase7-demo-desktop.png')).size>0);assert.ok((await stat('.qa/phase7-demo-mobile.png')).size>0);
+ }finally{await browser('close');}
 });
