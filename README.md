@@ -2,7 +2,7 @@
 
 A private recruiting workspace for NYC Blueprint leadership. It keeps recruiting memory in one place, with individual Google sign-in and manually approved leadership access.
 
-## Current scope — Phase 3
+## Current scope — Phase 4
 
 Phase 1 is deployed at https://blueprint-recruitment.vercel.app. The user confirmed Google sign-in, manual approval, and dashboard access on September 17, 2026.
 
@@ -21,7 +21,9 @@ Phase 3 adds seasonal stages (Unknown Prospect, Known Prospect, Confirmed for Tr
 
 The profile's paginated activity timeline spans all seasons. Database triggers log creation, season membership, important shared-fact edits, and workflow changes with author, timestamp, season context, and before/after values. No-op edits do not create events. Logging begins with this migration; prior changes are not reconstructed. Version checks prevent stale forms from overwriting another leader's changes.
 
-Notes, manual interaction entries, evaluations, outcomes, imports, AI, and tryout/roster management remain outside scope. Stop before Phase 4.
+Phase 3 is merged in PR #2. Phase 4 adds the selected-season dashboard: stage counts, overdue follow-ups, upcoming follow-ups (today and later), missing owners, missing next actions, and recent activity. Dates use UTC. Each queue is paginated with exact totals; blank/whitespace-only actions count as missing. Recent activity includes selected-season events and shared facts for people in that season. Links open the prospect in the same season; historical records remain read-only.
+
+Notes, manual interaction entries, evaluations, outcomes, imports, AI, and tryout/roster management remain outside scope. Stop before Phase 5.
 
 ## Development and verification
 

@@ -30,6 +30,7 @@ export async function saveProspect(id: string | null, seasonId: string, _previou
   if (error || typeof data !== "string") return { values, error: "Could not create this prospect. Please reload and try again." };
   savedId = data;
  }
+ revalidatePath("/dashboard");
  revalidatePath("/prospects");
  revalidatePath("/prospects/" + savedId);
  redirect("/prospects/" + savedId + "?season=" + season.year);
@@ -41,6 +42,7 @@ export async function addToSeason(prospectId: string, seasonId: string, _previou
  if (seasonError || !season || season.status !== "active") return { error: "Choose an active season to add this prospect." };
  const { error } = await client.from("candidacies").insert({ prospect_id: prospectId, season_id: seasonId });
  if (error && error.code !== "23505") return { error: "Could not add this prospect to the season. Reload and try again." };
+ revalidatePath("/dashboard");
  revalidatePath("/prospects");
  revalidatePath("/prospects/" + prospectId);
  redirect("/prospects/" + prospectId + "?season=" + season.year);
