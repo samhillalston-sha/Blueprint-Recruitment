@@ -874,10 +874,10 @@ test('phase 8 browser review covers login, empty data and provider errors at des
   people=[];memberships=[];activity=[];await browser('open',appOrigin+'/dashboard?season=2027');await browser('wait','--text','No overdue follow-ups');
   snapshot=await browser('snapshot');assert.match(snapshot,/No recorded activity for this season yet/);assert.match(snapshot,/Every prospect in this season has an assigned owner/);
   await browser('screenshot',resolve('.qa/phase8-empty-mobile.png'),'--full');size=await layout();assert.ok(size.scrollWidth<=size.width+1,JSON.stringify(size));
+  assert.deepEqual(JSON.parse(await browser('errors','--json')).data.errors,[]);assert.doesNotMatch(await browser('console'),/hydration|Minified React|Uncaught/i);
   dashboardUnavailable=true;await browser('open',appOrigin+'/dashboard');await browser('wait','--text','Something isn’t available right now.');
   snapshot=await browser('snapshot');assert.match(snapshot,/Try again/);assert.doesNotMatch(snapshot,/No overdue follow-ups|Every prospect in this season/);
   await browser('screenshot',resolve('.qa/phase8-error-mobile.png'),'--full');size=await layout();assert.ok(size.scrollWidth<=size.width+1,JSON.stringify(size));
-  assert.deepEqual(JSON.parse(await browser('errors','--json')).data.errors,[]);assert.doesNotMatch(await browser('console'),/hydration|Minified React|Uncaught/i);
   for(const name of ['phase8-login-desktop.png','phase8-login-mobile.png','phase8-empty-mobile.png','phase8-error-mobile.png'])assert.ok((await stat(resolve('.qa',name))).size>0);
  }finally{dashboardUnavailable=false;people=original.people;memberships=original.memberships;activity=original.activity;await browser('close');}
 });
