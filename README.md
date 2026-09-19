@@ -2,7 +2,7 @@
 
 A private recruiting workspace for NYC Blueprint leadership, built to preserve recruiting memory across seasons and make the next action clear. Product owner: Sam Alston, NYC Blueprint captain. Implementation assistance: Codex.
 
-**Production:** [blueprint-recruitment.vercel.app](https://blueprint-recruitment.vercel.app) — individual Google sign-in and manually approved leadership access. Phase 1 access and the Phase 2 deployed screens were confirmed by the user. Phases 3–5 are merged to main. Phase 6 PR #5 was merged into the Phase 5 branch; this Phase 7 PR carries its changes to main.
+**Production:** [blueprint-recruitment.vercel.app](https://blueprint-recruitment.vercel.app) — individual Google sign-in and manually approved leadership access. Phases 1–7 are merged to main.
 
 **Portfolio:** [Product case study](docs/CASE_STUDY.md) · [Architecture](docs/ARCHITECTURE.md) · [Synthetic screenshots](docs/SCREENSHOTS.md) · [Import guide](docs/IMPORT.md)
 
@@ -38,6 +38,7 @@ npm run test
 npm run typecheck
 npm run build
 npm run test:runtime
+npm run verify:deployment
 ```
 
 `predev` and `prebuild` generate the isolated demo from `demo/` into ignored `public/demo/`. To serve only the demo, without the private app:
@@ -49,10 +50,10 @@ python3 -m http.server 3001 --directory public/demo
 
 Copy `.env.example` to `.env.local`, fill its values, and use a modern publishable Supabase key. Never supply a secret/service-role key to the app. Missing or invalid configuration fails closed; `APP_ENV=demo` still cannot enter the private workspace. The static demo does not need those variables.
 
-[Setup](docs/SETUP.md) · [Scope](docs/SCOPE.md) · [Verification](docs/VERIFICATION.md). GitHub Actions runs checks against isolated synthetic providers and retains browser captures. Hosted permission scripts roll back all fixtures. Existing Supabase project `ldrdsvsmwnjzhyzqdcdt` and Vercel infrastructure are preserved; applied migrations must not be reapplied.
+[Setup](docs/SETUP.md) · [Scope](docs/SCOPE.md) · [Verification history](docs/VERIFICATION.md) · [Phase 8 verification matrix](docs/PHASE8_VERIFICATION.md). GitHub Actions runs checks against isolated synthetic providers and retains browser captures. Hosted permission scripts roll back all fixtures. Existing Supabase project `ldrdsvsmwnjzhyzqdcdt` and Vercel infrastructure are preserved; applied migrations must not be reapplied.
 
 ## Privacy and boundaries
 
 This repository contains source and deliberately synthetic portfolio assets, not a recruiting dataset. Never commit real names, contacts, ratings, credentials, private exports, generated import SQL or private screenshots. Private inputs belong outside the repository or in ignored `data/private/`. Demo fixtures are authored independently; they are never anonymized copies of real prospects.
 
-Stop after Phase 7. Notes, manual interaction entries, notifications, AI features, and tryout/roster management remain outside this phase.
+Phase 8 adds verification evidence only: it does not add recruiting behavior or use production records. Notes, manual interaction entries, notifications, AI features, and tryout/roster management remain outside scope.

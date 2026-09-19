@@ -58,7 +58,14 @@ The user confirmed the deployed prospect screens after merging Phase 2.
 
 Phase 5 is merged to main. Phase 6 PR #5 merged into the Phase 5 branch; the Phase 7 PR carries those already-approved source changes into main. Existing hosted Phase 6 migrations are not reapplied.
 
-Stop after Phase 7. Notes, manual interaction entries, reminders/notifications, AI, and tryout/roster management remain outside scope.
+## Phase 8 — authorized verification
+
+- Authentication and approval-only authorization regression coverage, including callback validation, revocation, missing/inactive profiles and fail-closed provider errors.
+- End-to-end workflow and historical/data-isolation checks using synthetic providers and rollback-only hosted SQL.
+- Desktop/mobile layout, empty-state and error-state browser review with synthetic screenshots only.
+- Anonymous, read-only production and demo deployment smoke checks. No production writes or private production screenshots.
+
+Stop after Phase 8. Notes, manual interaction entries, reminders/notifications, AI, and tryout/roster management remain outside scope.
 
 ## Remaining work
 

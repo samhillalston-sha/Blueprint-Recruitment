@@ -652,6 +652,14 @@ test("dashboard provider failure displays an error instead of invented zero coun
  dashboardUnavailable=true;
  try{const html=await(await get("/dashboard","active")).text();assert.match(html,/error|unavailable/i);assert.doesNotMatch(html,/No overdue follow-ups|Every prospect in this season/);}finally{dashboardUnavailable=false;}
 });
+test("dashboard empty state reports zero real records without fabricating work",async()=>{
+ const original={people,memberships,activity};people=[];memberships=[];activity=[];
+ try{
+  const html=await(await get("/dashboard?season=2027","active")).text();
+  for(const label of ["Unknown Prospect","Known Prospect","Confirmed for Tryouts"])assert.match(html,new RegExp(`aria-label="${label} count">0<`));
+  for(const message of ["No overdue follow-ups","No upcoming follow-ups","Every prospect in this season has an assigned owner","Every prospect in this season has a next action","No recorded activity for this season yet"])assert.match(html,new RegExp(message));
+ }finally{people=original.people;memberships=original.memberships;activity=original.activity;}
+});
 test("hydrated dashboard navigates queues and historical context without mobile overflow",{skip:process.env.BLUEPRINT_BROWSER_QA!=="1",timeout:120_000},async()=>{
  const restore=seedDashboard();const run=promisify(execFile);
  const browser=async(...args:string[])=>(await run("npx",["--yes","agent-browser@0.38.1",...args],{env:{...process.env,AGENT_BROWSER_SESSION:"blueprint-phase4-ci"},timeout:40_000,maxBuffer:2_000_000})).stdout;
@@ -850,4 +858,26 @@ test('hydrated anonymous demo navigates counts, search, N/A comparisons and hist
   const resources=JSON.parse(await browser('eval',"performance.getEntriesByType('resource').map(item=>item.name)",'--json')).data.result;assert.ok(resources.every((url:string)=>!url.includes('/rest/v1')&&!url.includes('/auth/v1')&&!url.includes('supabase')));assert.equal(validatedIdentities,before);
   assert.deepEqual(JSON.parse(await browser('errors','--json')).data.errors,[]);assert.doesNotMatch(await browser('console'),/Uncaught|hydration|Minified React/i);assert.ok((await stat('.qa/phase7-demo-desktop.png')).size>0);assert.ok((await stat('.qa/phase7-demo-mobile.png')).size>0);
  }finally{await browser('close');}
+});
+
+test('phase 8 browser review covers login, empty data and provider errors at desktop and mobile',{skip:process.env.BLUEPRINT_BROWSER_QA!=='1',timeout:120_000},async()=>{
+ const run=promisify(execFile);const browser=async(...args:string[])=>(await run('npx',['--yes','agent-browser@0.38.1',...args],{env:{...process.env,AGENT_BROWSER_SESSION:'blueprint-phase8-verification-ci'},timeout:40_000,maxBuffer:2_000_000})).stdout;
+ const original={people,memberships,activity};await mkdir('.qa',{recursive:true});
+ const layout=async()=>JSON.parse(await browser('eval','({width:innerWidth,scrollWidth:document.documentElement.scrollWidth})','--json')).data.result;
+ try{
+  await browser('set','viewport','1280','900');await browser('open',appOrigin+'/login');await browser('wait','--text','Welcome back.');
+  let snapshot=await browser('snapshot');assert.match(snapshot,/Sign in with Google|individual Google account/);assert.doesNotMatch(snapshot,/Workspace setup is still in progress/);
+  await browser('screenshot',resolve('.qa/phase8-login-desktop.png'),'--full');let size=await layout();assert.ok(size.scrollWidth<=size.width+1,JSON.stringify(size));
+  await browser('set','viewport','390','844');await browser('open',appOrigin+'/login');await browser('wait','--text','Welcome back.');
+  await browser('screenshot',resolve('.qa/phase8-login-mobile.png'),'--full');size=await layout();assert.ok(size.scrollWidth<=size.width+1,JSON.stringify(size));
+  const cookie=sessionCookie('active');const separator=cookie.indexOf('=');await browser('cookies','set',cookie.slice(0,separator),cookie.slice(separator+1),'--url',appOrigin);
+  people=[];memberships=[];activity=[];await browser('open',appOrigin+'/dashboard?season=2027');await browser('wait','--text','No overdue follow-ups');
+  snapshot=await browser('snapshot');assert.match(snapshot,/No recorded activity for this season yet/);assert.match(snapshot,/Every prospect in this season has an assigned owner/);
+  await browser('screenshot',resolve('.qa/phase8-empty-mobile.png'),'--full');size=await layout();assert.ok(size.scrollWidth<=size.width+1,JSON.stringify(size));
+  dashboardUnavailable=true;await browser('open',appOrigin+'/dashboard');await browser('wait','--text','Something isn’t available right now.');
+  snapshot=await browser('snapshot');assert.match(snapshot,/Try again/);assert.doesNotMatch(snapshot,/No overdue follow-ups|Every prospect in this season/);
+  await browser('screenshot',resolve('.qa/phase8-error-mobile.png'),'--full');size=await layout();assert.ok(size.scrollWidth<=size.width+1,JSON.stringify(size));
+  assert.deepEqual(JSON.parse(await browser('errors','--json')).data.errors,[]);assert.doesNotMatch(await browser('console'),/hydration|Minified React|Uncaught/i);
+  for(const name of ['phase8-login-desktop.png','phase8-login-mobile.png','phase8-empty-mobile.png','phase8-error-mobile.png'])assert.ok((await stat(resolve('.qa',name))).size>0);
+ }finally{dashboardUnavailable=false;people=original.people;memberships=original.memberships;activity=original.activity;await browser('close');}
 });
