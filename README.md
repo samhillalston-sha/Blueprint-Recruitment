@@ -1,59 +1,99 @@
 # Blueprint Recruiting
 
-A private recruiting workspace for NYC Blueprint leadership, built to preserve recruiting memory across seasons and make the next action clear. Product owner: Sam Alston, NYC Blueprint captain. Implementation assistance: Codex.
+A production recruiting workspace for NYC Blueprint leadership. It turns offseason recruiting from scattered memory into a shared, season-aware system for identifying prospects, assigning follow-up, recording evaluations and preserving history.
 
-**Production:** [blueprint-recruitment.vercel.app](https://blueprint-recruitment.vercel.app) — individual Google sign-in and manually approved leadership access. Phases 1–7 are merged to main.
+**Status:** Application work across all eight planned phases is implemented and merged. The production deployment is working and Phase 8 verification has passed.
 
-**Portfolio:** [Product case study](docs/CASE_STUDY.md) · [Architecture](docs/ARCHITECTURE.md) · [Synthetic screenshots](docs/SCREENSHOTS.md) · [Import guide](docs/IMPORT.md)
+- **Live product:** [blueprint-recruitment.vercel.app](https://blueprint-recruitment.vercel.app)
+- **Synthetic demo:** [blueprint-recruitment.vercel.app/demo/](https://blueprint-recruitment.vercel.app/demo/)
+- **Portfolio:** [Case study](docs/CASE_STUDY.md) · [Architecture](docs/ARCHITECTURE.md) · [Screenshots](docs/SCREENSHOTS.md)
 
-## What it does
+Product owner: Sam Alston, NYC Blueprint captain. Implementation assistance: Codex.
 
-- Persistent people with separate seasonal candidacies, a searchable/paginated prospect database, fact editing, and duplicate-name warnings with explicit same-name overrides.
-- Seasonal recruiting stages, priorities, approved owners, next actions, UTC follow-up dates, and three qualitative year-by-year projections.
-- A dashboard with stage counts, overdue/upcoming follow-ups, missing owners/actions, and scoped recent activity with exact pagination.
-- Six evaluation attributes, each an integer 1–5 or explicit N/A. One entry per evaluator per season, author-only edits, attribute-specific averages excluding N/A, and a paginated comparison table visible before your own submission.
-- Optional season outcomes separate from stages, previous-season context, confirmed season closure, and adding the same person to a later season with fresh workflow and evaluations.
-- Trusted, immutable activity generated in the same transaction as important field changes. Version checks reject stale workflow, outcome and evaluation saves.
+![Blueprint Recruiting dashboard using wholly synthetic records](docs/images/dashboard-desktop.png)
 
-Closed seasons retain workflow, outcomes and evaluations and reject seasonal edits. Shared person facts remain current values across years; they are not historical snapshots. Ordinary clients cannot delete or move history or approve leadership.
+## Product capabilities
 
-## Phase 7 — data and portfolio
+- **Private leadership access:** individual Google sign-in, manual approval and server-verified authorization. New accounts are inactive by default.
+- **Prospect database:** persistent player profiles, search, pagination, creation/editing and duplicate-name warnings.
+- **Seasonal workflow:** separate stages, priorities, owners, next actions, follow-up dates and qualitative three-year projections for every season.
+- **Operational dashboard:** stage totals, overdue and upcoming follow-ups, missing owners, missing actions and recent activity.
+- **Evaluations:** six 1–5 or N/A attributes, one evaluation per leader, author-only editing, attribute averages and evaluator comparison.
+- **Historical continuity:** optional season outcomes, read-only closed seasons, previous-season context and reuse of the same person in a later season with fresh workflow.
+- **Trusted activity:** important changes are logged automatically with actor, timestamp and before/after values in the same database transaction.
+- **Private import tooling:** validates up to ten known-source prospects and prepares a guarded atomic import without committing source data.
+- **Portfolio demo:** ten fictional prospects across two sample seasons in a read-only static environment with no Auth or database connection.
 
-The private import script validates a UTF-8 CSV and defaults to a no-write check. It can prepare owner-readable private SQL for a one-to-ten-row atomic import. Approval checks, active-season locks, explicit duplicate resolution and private retry receipts protect imports. Unknown facts remain null; workflow, projections and ratings are never invented. Source CSVs and generated SQL do not belong in this public repository.
+Shared player facts remain current across seasons. Recruiting workflow, outcomes and evaluations remain season-specific. Closing a season preserves its records and prevents further seasonal edits.
 
-**The ten-real-prospect import is pending:** no designated recruiting source file or target season was supplied. Hosted verification used ten synthetic rows and rolled everything back; it is not a real import.
+## Architecture
 
-The self-contained **read-only synthetic demo** uses ten fictional people and two sample seasons. It has no database, Auth client, import or write endpoint, and does not bypass the private app’s authorization. Its dates use a fixed sample day. After this PR deploys, open `/demo/` on the existing app; its generated directory can also be served independently without any app credentials. See [demo setup](docs/DEMO.md).
+The application uses Next.js 16, React 19, Supabase Auth/Postgres and Vercel.
 
-![Selected-season dashboard using wholly synthetic test records](docs/images/dashboard-desktop.png)
+- Next.js Server Components and Server Actions render the private workspace and process mutations.
+- Every private request verifies the current identity with Supabase Auth, then checks the user’s active leadership profile.
+- Postgres row-level security, column grants, guarded functions and database triggers provide the final authorization and audit boundary.
+- Persistent people are separated from seasonal candidacies so history is retained without copying profiles.
+- The synthetic demo is generated as static files and cannot enter the private application.
+
+See [Architecture](docs/ARCHITECTURE.md) for the full data model, trust boundaries and deployment flow.
+
+## Verification
+
+The completed system is covered across application, database, browser and deployment layers:
+
+- 40 unit tests.
+- 49 production-runtime and hydrated-browser tests with zero failures or skips in the final hosted run.
+- Phase 1–7 hosted Supabase permission and data-isolation regressions using rollback-only synthetic fixtures.
+- Desktop and mobile checks for the private workflow, dashboard, evaluations, continuity, login, empty states, error states and demo.
+- Read-only production checks for login configuration, security headers, anonymous private-route redirects, demo availability and the branded 404.
+
+The owner has confirmed Google sign-in, leadership approval and production workspace access. See the [Phase 8 verification matrix](docs/PHASE8_VERIFICATION.md) and [verification history](docs/VERIFICATION.md) for detailed evidence.
 
 ## Development
 
-Requires Node 22+ and npm. Private import tooling and its tests require Python 3.11+. Dependency versions and the lockfile are unchanged.
+Requires Node 22+, npm and Python 3.11+ for the private import tooling tests.
 
-```sh
-npm ci
-npm run dev
-npm run test
-npm run typecheck
-npm run build
-npm run test:runtime
-npm run verify:deployment
-```
+    npm ci
+    npm run dev
+    npm run test
+    npm run typecheck
+    npm run build
+    npm run test:runtime
+    npm run verify:deployment
 
-`predev` and `prebuild` generate the isolated demo from `demo/` into ignored `public/demo/`. To serve only the demo, without the private app:
+Copy [.env.example](.env.example) to .env.local and provide:
 
-```sh
-npm run build:demo
-python3 -m http.server 3001 --directory public/demo
-```
+- SUPABASE_URL
+- SUPABASE_PUBLISHABLE_KEY
+- APP_URL
+- APP_ENV=private
 
-Copy `.env.example` to `.env.local`, fill its values, and use a modern publishable Supabase key. Never supply a secret/service-role key to the app. Missing or invalid configuration fails closed; `APP_ENV=demo` still cannot enter the private workspace. The static demo does not need those variables.
+Use a modern Supabase publishable key—never a secret or service-role key. Missing or unsafe configuration fails closed.
 
-[Setup](docs/SETUP.md) · [Scope](docs/SCOPE.md) · [Verification history](docs/VERIFICATION.md) · [Phase 8 verification matrix](docs/PHASE8_VERIFICATION.md). GitHub Actions runs checks against isolated synthetic providers and retains browser captures. Hosted permission scripts roll back all fixtures. Existing Supabase project `ldrdsvsmwnjzhyzqdcdt` and Vercel infrastructure are preserved; applied migrations must not be reapplied.
+To run only the static demo without credentials:
+
+    npm run build:demo
+    python3 -m http.server 3001 --directory public/demo
+
+## Private imports
+
+The import tool defaults to validation-only and never logs source values. It supports stable retry IDs, explicit duplicate resolution and atomic writes to an active season.
+
+See [Private import guide](docs/IMPORT.md). Real CSV inputs and generated SQL belong outside Git or under ignored data/private/.
+
+## Documentation
+
+- [Product case study](docs/CASE_STUDY.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Setup and operations](docs/SETUP.md)
+- [Product scope and decisions](docs/SCOPE.md)
+- [Demo guide](docs/DEMO.md)
+- [Screenshot provenance](docs/SCREENSHOTS.md)
+- [Verification history](docs/VERIFICATION.md)
 
 ## Privacy and boundaries
 
-This repository contains source and deliberately synthetic portfolio assets, not a recruiting dataset. Never commit real names, contacts, ratings, credentials, private exports, generated import SQL or private screenshots. Private inputs belong outside the repository or in ignored `data/private/`. Demo fixtures are authored independently; they are never anonymized copies of real prospects.
+This public repository contains source code and deliberately synthetic portfolio assets—not Blueprint’s recruiting dataset. Never commit real prospect names, contact details, ratings, credentials, private exports, generated import SQL or private-workspace screenshots.
 
-Phase 8 adds verification evidence only: it does not add recruiting behavior or use production records. Notes, manual interaction entries, notifications, AI features, and tryout/roster management remain outside scope.
+Prospects may be entered manually in the approved production workspace. The repository and demo remain free of real player data.
