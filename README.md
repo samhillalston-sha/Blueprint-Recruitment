@@ -10,8 +10,6 @@ A production recruiting workspace for NYC Blueprint leadership. It turns offseas
 
 Product owner: Sam Alston, NYC Blueprint captain. Implementation assistance: Codex.
 
-![Blueprint Recruiting dashboard using wholly synthetic records](docs/images/dashboard-desktop.png)
-
 ## Product capabilities
 
 - **Private leadership access:** individual Google sign-in, manual approval and server-verified authorization. New accounts are inactive by default.
