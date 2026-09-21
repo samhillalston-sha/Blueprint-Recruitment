@@ -35,12 +35,14 @@ assert.ok([303, 307, 308].includes(demoEntry.status));
 assert.equal(new URL(demoEntry.headers.get("location"), target).pathname, "/demo/index.html");
 const demo = await request("/demo/index.html");
 assert.equal(demo.status, 200);
-assert.match(await demo.text(), /Every person and rating is invented/);
+assert.match(await demo.text(), /Every name, team, scenario, and rating is invented/);
 const data = await request("/demo/data.mjs");
 assert.equal(data.status, 200);
 const dataset = JSON.parse((await data.text()).replace(/^export const demoData = /, "").replace(/;\n?$/, ""));
 assert.equal(dataset.prospects.length, 10);
-assert.ok(dataset.prospects.every(person => /^Demo Prospect \d{2}$/.test(person.name)));
+assert.equal(new Set(dataset.prospects.map(person => person.name)).size, 10);
+assert.ok(dataset.prospects.every(person => /^[A-Z][a-z]+ [A-Z][a-z]+$/.test(person.name)));
+assert.ok(dataset.prospects.every(person => !/Demo Prospect/i.test(person.name)));
 
 const missing = await request("/phase-eight-missing-page");
 assert.equal(missing.status, 404);

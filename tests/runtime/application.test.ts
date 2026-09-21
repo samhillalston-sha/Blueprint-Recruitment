@@ -841,17 +841,17 @@ test('anonymous synthetic demo assets never query the private provider or grant 
  const denied=await get('/dashboard');assert.equal(new URL(denied.headers.get('location')!,appOrigin).pathname,'/login');
 });
 test('the portfolio demo contains ten fictional people, separate historical data and no private data routes',async()=>{
- const html=await(await get('/demo/index.html')).text();assert.match(html,/Synthetic demo|SYNTHETIC PORTFOLIO DEMO/);assert.match(html,/Every person and rating is invented/);
+ const html=await(await get('/demo/index.html')).text();assert.match(html,/Synthetic demo|SYNTHETIC PORTFOLIO DEMO/);assert.match(html,/Every name, team, scenario, and rating is invented/);
  const source=await(await get('/demo/data.mjs')).text();const data=JSON.parse(source.replace(/^export const demoData = /,'').replace(/;\n$/,''));assert.equal(data.prospects.length,10);assert.equal(data.prospects[0].seasons[1].status,'closed');assert.equal(data.prospects[0].seasons[1].outcome,'Cut–Encourage to Return');assert.equal(data.prospects[0].seasons[0].outcome,null);
 });
 test('hydrated anonymous demo navigates counts, search, N/A comparisons and history without backend access',{skip:process.env.BLUEPRINT_BROWSER_QA!=='1',timeout:120_000},async()=>{
  const run=promisify(execFile);const browser=async(...args:string[])=>(await run('npx',['--yes','agent-browser@0.38.1',...args],{env:{...process.env,AGENT_BROWSER_SESSION:'blueprint-phase7-demo-ci'},timeout:40_000,maxBuffer:2_000_000})).stdout;
  const before=validatedIdentities;await mkdir('.qa',{recursive:true});try{
-  await browser('open',appOrigin+'/demo/');await browser('wait','main .metrics');assert.match(await browser('snapshot'),/Synthetic demo|Every person and rating is invented/);
+  await browser('open',appOrigin+'/demo/');await browser('wait','main .metrics');assert.match(await browser('snapshot'),/Synthetic demo|Every name, team, scenario, and rating is invented/);
   const counts=JSON.parse(await browser('eval',"Array.from(document.querySelectorAll('.metrics strong')).map(item=>Number(item.textContent))",'--json')).data.result;assert.deepEqual(counts,[4,3,3]);
   await browser('screenshot',resolve('.qa/phase7-demo-desktop.png'),'--full');
-  await browser('click','nav a[href="#prospects"]');await browser('wait','#search');await browser('fill','#search','Demo Prospect 01');assert.doesNotMatch(await browser('get','text','main table'),/Demo Prospect 02/);
-  await browser('find','role','link','click','--name','Demo Prospect 01');await browser('wait','.averages');assert.match(await browser('get','text','.averages .average:first-child'),/3.50/);assert.match(await browser('snapshot'),/N\/A|Previous recorded season/);
+  await browser('click','nav a[href="#prospects"]');await browser('wait','#search');await browser('fill','#search','Darius Holloway');assert.doesNotMatch(await browser('get','text','main table'),/Evan Mercer/);
+  await browser('find','role','link','click','--name','Darius Holloway');await browser('wait','.averages');assert.match(await browser('get','text','.averages .average:first-child'),/3.50/);assert.match(await browser('snapshot'),/N\/A|Previous recorded season/);
   await browser('select','#season','2026');assert.match(await browser('snapshot'),/Cut–Encourage to Return/);assert.match(await browser('get','text','.averages .average:first-child'),/3.00/);assert.doesNotMatch(await browser('snapshot','-i'),/Save outcome|Submit evaluation|Edit prospect/);
   await browser('set','viewport','390','844');await browser('screenshot',resolve('.qa/phase7-demo-mobile.png'),'--full');
   const layout=JSON.parse(await browser('eval','({width:innerWidth,scrollWidth:document.documentElement.scrollWidth})','--json')).data.result;assert.ok(layout.scrollWidth<=layout.width+1,JSON.stringify(layout));
