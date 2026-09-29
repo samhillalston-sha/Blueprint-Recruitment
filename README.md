@@ -1,6 +1,6 @@
 # Blueprint Recruiting
 
-A production recruiting workspace for NYC Blueprint leadership. It turns offseason recruiting from scattered memory into a shared, season-aware system for identifying prospects, assigning follow-up, recording evaluations and preserving history.
+A production recruiting workspace for NYC Blueprint leadership. It turns offseason recruiting from scattered memory into a shared system for identifying prospects, assigning follow-up, recording evaluations and preserving history.
 
 **Status:** Application work across all eight planned phases is implemented and merged. The production deployment is working and Phase 8 verification has passed.
 
