@@ -847,16 +847,26 @@ test('the portfolio demo contains ten fictional people, separate historical data
 test('hydrated anonymous demo navigates counts, search, N/A comparisons and history without backend access',{skip:process.env.BLUEPRINT_BROWSER_QA!=='1',timeout:120_000},async()=>{
  const run=promisify(execFile);const browser=async(...args:string[])=>(await run('npx',['--yes','agent-browser@0.38.1',...args],{env:{...process.env,AGENT_BROWSER_SESSION:'blueprint-phase7-demo-ci'},timeout:40_000,maxBuffer:2_000_000})).stdout;
  const before=validatedIdentities;await mkdir('.qa',{recursive:true});try{
+  await browser('set','viewport','1440','900');
   await browser('open',appOrigin+'/demo/');await browser('wait','main .metrics');assert.match(await browser('snapshot'),/Synthetic demo|Every name, team, scenario, and rating is invented/);
   const counts=JSON.parse(await browser('eval',"Array.from(document.querySelectorAll('.metrics strong')).map(item=>Number(item.textContent))",'--json')).data.result;assert.deepEqual(counts,[4,3,3]);
   await browser('screenshot',resolve('.qa/phase7-demo-desktop.png'),'--full');
-  await browser('click','nav a[href="#prospects"]');await browser('wait','#search');await browser('fill','#search','Darius Holloway');assert.doesNotMatch(await browser('get','text','main table'),/Evan Mercer/);
+  await browser('screenshot',resolve('.qa/case-study-dashboard.png'));
+  await browser('click','nav a[href="#prospects"]');await browser('wait','#search');
+  await browser('screenshot',resolve('.qa/case-study-prospects.png'));
+  await browser('fill','#search','Darius Holloway');assert.doesNotMatch(await browser('get','text','main table'),/Evan Mercer/);
   await browser('find','role','link','click','--name','Darius Holloway');await browser('wait','.averages');assert.match(await browser('get','text','.averages .average:first-child'),/3.50/);assert.match(await browser('snapshot'),/N\/A|Previous recorded season/);
+  await browser('screenshot',resolve('.qa/case-study-profile.png'));
+  await browser('eval',"document.querySelector('.averages').scrollIntoView({block:'center'})");
+  await browser('screenshot',resolve('.qa/case-study-evaluations.png'));
   await browser('select','#season','2026');assert.match(await browser('snapshot'),/Cut–Encourage to Return/);assert.match(await browser('get','text','.averages .average:first-child'),/3.00/);assert.doesNotMatch(await browser('snapshot','-i'),/Save outcome|Submit evaluation|Edit prospect/);
+  await browser('eval',"document.querySelector('h1').scrollIntoView({block:'start'})");
+  await browser('screenshot',resolve('.qa/case-study-history.png'));
   await browser('set','viewport','390','844');await browser('screenshot',resolve('.qa/phase7-demo-mobile.png'),'--full');
   const layout=JSON.parse(await browser('eval','({width:innerWidth,scrollWidth:document.documentElement.scrollWidth})','--json')).data.result;assert.ok(layout.scrollWidth<=layout.width+1,JSON.stringify(layout));
   const resources=JSON.parse(await browser('eval',"performance.getEntriesByType('resource').map(item=>item.name)",'--json')).data.result;assert.ok(resources.every((url:string)=>!url.includes('/rest/v1')&&!url.includes('/auth/v1')&&!url.includes('supabase')));assert.equal(validatedIdentities,before);
-  assert.deepEqual(JSON.parse(await browser('errors','--json')).data.errors,[]);assert.doesNotMatch(await browser('console'),/Uncaught|hydration|Minified React/i);assert.ok((await stat('.qa/phase7-demo-desktop.png')).size>0);assert.ok((await stat('.qa/phase7-demo-mobile.png')).size>0);
+  assert.deepEqual(JSON.parse(await browser('errors','--json')).data.errors,[]);assert.doesNotMatch(await browser('console'),/Uncaught|hydration|Minified React/i);
+  for(const name of ['phase7-demo-desktop.png','phase7-demo-mobile.png','case-study-dashboard.png','case-study-prospects.png','case-study-profile.png','case-study-evaluations.png','case-study-history.png'])assert.ok((await stat(resolve('.qa',name))).size>0,name);
  }finally{await browser('close');}
 });
 
