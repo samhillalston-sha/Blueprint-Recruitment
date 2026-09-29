@@ -865,7 +865,8 @@ test('hydrated anonymous demo navigates counts, search, N/A comparisons and hist
   await browser('set','viewport','390','844');await browser('screenshot',resolve('.qa/phase7-demo-mobile.png'),'--full');
   const layout=JSON.parse(await browser('eval','({width:innerWidth,scrollWidth:document.documentElement.scrollWidth})','--json')).data.result;assert.ok(layout.scrollWidth<=layout.width+1,JSON.stringify(layout));
   const resources=JSON.parse(await browser('eval',"performance.getEntriesByType('resource').map(item=>item.name)",'--json')).data.result;assert.ok(resources.every((url:string)=>!url.includes('/rest/v1')&&!url.includes('/auth/v1')&&!url.includes('supabase')));assert.equal(validatedIdentities,before);
-  assert.deepEqual(JSON.parse(await browser('errors','--json')).data.errors,[]);assert.doesNotMatch(await browser('console'),/Uncaught|hydration|Minified React/i);assert.ok((await stat('.qa/phase7-demo-desktop.png')).size>0);assert.ok((await stat('.qa/phase7-demo-mobile.png')).size>0);
+  assert.deepEqual(JSON.parse(await browser('errors','--json')).data.errors,[]);assert.doesNotMatch(await browser('console'),/Uncaught|hydration|Minified React/i);
+  for(const name of ['phase7-demo-desktop.png','phase7-demo-mobile.png','case-study-dashboard.png','case-study-prospects.png','case-study-profile.png','case-study-evaluations.png','case-study-history.png'])assert.ok((await stat(resolve('.qa',name))).size>0,name);
  }finally{await browser('close');}
 });
 

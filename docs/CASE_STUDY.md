@@ -10,7 +10,7 @@ The product brief therefore focused on shared recruiting memory and clear owners
 
 ## Product ownership and scope
 
-Sam set the phased requirements and recruiting vocabulary, and confirmed the deployed Google sign-in, manual approval and prospect screens. The implementation followed seven bounded phases: access, prospect records, recruiting workflow, dashboard, evaluations, historical continuity, and data/portfolio preparation. Each phase produced a reviewable PR and verification evidence. Coding and checks were assisted by Codex; this is not a claim that every line was authored manually.
+Sam set the phased requirements and recruiting vocabulary, and confirmed the deployed Google sign-in, manual approval and prospect screens. The implementation followed eight bounded phases: access, prospect records, recruiting workflow, dashboard, evaluations, historical continuity, data/portfolio preparation, and verification. Each phase produced reviewable changes and verification evidence. Coding and checks were assisted by Codex; this is not a claim that every line was authored manually.
 
 The core decisions were to use individual approved accounts, distinguish persistent facts from seasonal decisions, keep progress stages separate from final outcomes, and avoid inventing unknown information. Notes, automated reminders, AI summaries and broader sports-management features remained outside the initial scope.
 
@@ -27,15 +27,23 @@ The core decisions were to use individual approved accounts, distinguish persist
 | Immutable automatic activity | Actual important edits record trusted author/time and before/after values | Recruiting memory remains attributable without relying on manual audit entry |
 | Close a season without clearing it | Historical workflow, results and ratings stay read-only; new memberships start fresh | Historical knowledge informs the next year without silently becoming a current assessment |
 
-## Example journey
+## A recruiting journey
 
-A fictional prospect is added with only a name and known shared facts. A leader assigns an approved owner, records outreach and chooses a follow-up date. The dashboard places the prospect in the selected year's appropriate queue. Evaluators independently submit numeric ratings or N/A; everyone in approved leadership can see the individual entries and attribute means before submitting their own.
+In the private product, a leader adds a prospect with only the facts they know, assigns an approved owner, records the next action and chooses a follow-up date. The selected-season dashboard surfaces overdue work and gaps in ownership. The read-only demo below uses invented names, teams, dates and ratings to illustrate those states; it does not show a real recruiting pipeline or permit edits.
 
-At season end, leadership explicitly records a result and types the year to close that season. Next year, the same person gets a fresh seasonal membership. Their prior outcome, projections and evaluations remain available through previous-season context and historical links; current workflow and ratings are not copied.
+![Synthetic demo dashboard with stage counts and follow-up queues](images/demo-dashboard.png)
 
-![Synthetic dashboard showing the recruiting workflow](images/dashboard-desktop.png)
+The prospect list keeps each person's stage, owner, next action and follow-up visible together. Darius Holloway and Evan Mercer deliberately have missing owners and actions, making the exception visible rather than hiding it behind a reassuring total.
 
-![Synthetic profile demonstrating distinct current and prior seasons](images/season-continuity-desktop.png)
+![Synthetic prospect database with fictional names and seasonal workflow](images/demo-prospects.png)
+
+Evaluators independently submit numeric ratings or N/A. Approved leadership can see individual entries and attribute means; N/A is excluded from the average for that attribute. The demo's comparison makes the different denominators visible.
+
+![Fictional evaluator comparison and attribute averages excluding N/A](images/demo-evaluations.png)
+
+At season end, leadership can explicitly record an outcome and close that season. The same person can join a later active season with fresh workflow and evaluations, while the earlier outcome, projections and ratings remain accessible. The historical sample below shows an outcome separate from its tryout stage.
+
+![Darius Holloway's fictional 2026 workflow and distinct season outcome](images/demo-history.png)
 
 ## Engineering choices and tradeoffs
 
@@ -51,7 +59,7 @@ For portfolio sharing, a separate static runtime uses ten invented people and il
 
 Phase 1 Google sign-in, manual approval and dashboard access were user-confirmed; the Phase 2 deployed prospect screens were also confirmed. Later capabilities are supported by unit/type/build checks, built-app runtime/browser stories and separate hosted Postgres permission tests with rolled-back synthetic fixtures. The linked [verification record](VERIFICATION.md) and PRs distinguish automated checks from actual production-user confirmation.
 
-Phase 7's private import tooling is implemented and tested against ten synthetic rows, including atomic rollback, retry safety and duplicate resolution. **The ten-real-prospect import remains pending because no designated source file or target season was provided.** A test fixture is not counted as a production import.
+Phase 7's private import tooling is implemented and tested against ten synthetic rows, including atomic rollback, retry safety and duplicate resolution. Sam chose to enter real prospects manually in the approved private workspace; the repository and public demo contain no real player data. A synthetic test fixture is not counted as a production import.
 
 No measured reduction in recruiting time, adoption increase or improved roster outcome is claimed. The initial implementation establishes the workflow and safety properties; impact needs observation over a recruiting cycle. Useful future measures are the share of prospects with an owner/next action, overdue-follow-up completion, leadership usage and successful reuse of prior-season profiles. Collect them privately before making outcome claims.
 
