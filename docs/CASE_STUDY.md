@@ -10,7 +10,7 @@ The product brief therefore focused on shared recruiting memory and clear owners
 
 ## Product ownership and scope
 
-Sam set the phased requirements and recruiting vocabulary, and confirmed the deployed Google sign-in, manual approval and prospect screens. The implementation followed seven bounded phases: access, prospect records, recruiting workflow, dashboard, evaluations, historical continuity, and data/portfolio preparation. Each phase produced a reviewable PR and verification evidence. Coding and checks were assisted by Codex; this is not a claim that every line was authored manually.
+Sam set the phased requirements and recruiting vocabulary, and confirmed the deployed Google sign-in, manual approval and prospect screens. The implementation followed eight bounded phases: access, prospect records, recruiting workflow, dashboard, evaluations, historical continuity, data/portfolio preparation, and verification. Each phase produced reviewable changes and verification evidence. Coding and checks were assisted by Codex; this is not a claim that every line was authored manually.
 
 The core decisions were to use individual approved accounts, distinguish persistent facts from seasonal decisions, keep progress stages separate from final outcomes, and avoid inventing unknown information. Notes, automated reminders, AI summaries and broader sports-management features remained outside the initial scope.
 
@@ -33,9 +33,21 @@ A fictional prospect is added with only a name and known shared facts. A leader 
 
 At season end, leadership explicitly records a result and types the year to close that season. Next year, the same person gets a fresh seasonal membership. Their prior outcome, projections and evaluations remain available through previous-season context and historical links; current workflow and ratings are not copied.
 
-![Synthetic dashboard showing the recruiting workflow](images/dashboard-desktop.png)
+The follow-up cards prioritize scanning: three compact rows, relative due-date badges and a single-line next action. View all reveals the rest of the queue. Production retains pagination so the dashboard stays short without losing access to any prospect.
 
-![Synthetic profile demonstrating distinct current and prior seasons](images/season-continuity-desktop.png)
+![Synthetic demo dashboard with compact follow-up previews and expandable queues](images/demo-dashboard.png)
+
+The prospect list keeps stages, owners and next steps together. These fictional records include missing owners and actions to demonstrate how incomplete workflow stays visible.
+
+![Fictional prospects with seasonal stages, owners and next actions](images/demo-prospects.png)
+
+Individual ratings remain visible alongside attribute averages, with N/A excluded from each attribute's denominator.
+
+![Fictional evaluator comparison and attribute-specific averages](images/demo-evaluations.png)
+
+The historical sample preserves a previous season's workflow and outcome separately from the current recruiting process. All four images show the read-only synthetic demo; no private workspace was captured.
+
+![Fictional historical workflow and separate 2026 season outcome](images/demo-history.png)
 
 ## Engineering choices and tradeoffs
 

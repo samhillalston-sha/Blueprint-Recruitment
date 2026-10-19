@@ -1,27 +1,35 @@
 # Product screenshots
 
-Every screenshot below comes from hosted interactive browser tests using an isolated synthetic provider and unchanged application authorization. All names, contacts and ratings shown are fictional; no production workspace was captured. Source run: [Phase 6 verification 35296252994](https://github.com/samhillalston-sha/Blueprint-Recruitment/actions/runs/35296252994), application commit `4eb339d5e12e2b37b6f67515438d8f31ed5db130`. The Phase 7 PR retains additional standalone-demo desktop/mobile captures.
+These 1440×900 screenshots show the independently runnable, read-only synthetic demo. Every name, team, contact, scenario and rating is invented; no private production workspace was captured. Source: [browser verification run 39274711544](https://github.com/samhillalston-sha/Blueprint-Recruitment/actions/runs/39274711544), capture commit `c6cd33c806b39d0acce1a6dd1e1ba67077fd3571`.
+
+The demo mirrors production's compact follow-up cards: three rows initially, a relative UTC due-date badge, one line of next action, and a View all disclosure. Production also retains ten-row pagination in expanded queues. Sample counts and dates describe the fictional dataset only.
 
 ## Recruiting dashboard
 
-Selected-season counts, follow-up queues, missing owners/actions and scoped recent activity. These are synthetic test scenarios, not production recruiting totals.
+Selected-season stage counts and compact follow-up previews leave room for missing-owner and missing-action queues.
 
-![Blueprint dashboard with synthetic follow-ups and activity](images/dashboard-desktop.png)
+![Synthetic dashboard with compact follow-up previews](images/demo-dashboard.png)
+
+## Prospect database
+
+Fictional people with seasonal stages, owners, next actions and dates visible together.
+
+![Fictional prospect database and seasonal workflow](images/demo-prospects.png)
 
 ## Evaluator comparison
 
-Individual fictional ratings and per-attribute means demonstrate N/A exclusion and an editable own evaluation. The comparison scrolls within its container on mobile.
+Individual fictional ratings and per-attribute means demonstrate N/A exclusion. The static demo is read-only; production additionally provides evaluation entry and author-only editing.
 
-![Synthetic evaluation entry, averages and evaluator comparison](images/evaluations-desktop.png)
+![Fictional attribute averages and evaluator comparison](images/demo-evaluations.png)
 
 ## Seasonal continuity
 
-A fresh 2028 membership preserves the same person's 2027 result and 2026 historical record. Current seasonal fields and evaluations begin empty.
+The same fictional person has distinct 2027 and 2026 records. Switching to 2026 preserves the earlier workflow, projections, ratings and outcome.
 
-![New-season synthetic profile with previous-year outcome and preserved history](images/season-continuity-desktop.png)
+![Fictional historical workflow and separate season outcome](images/demo-history.png)
 
-## Season controls on mobile
+## Reproducing the captures
 
-The active season has exact-year closure confirmation. A newly closed season records its author/time; the earlier closed season retains unknown closure metadata. Starting a new season is explicit.
+The hosted `Verify Blueprint Recruiting` workflow runs `BLUEPRINT_BROWSER_QA=1 npm run test:runtime` after building the app and installing the browser. The demo story asserts three visible rows, expansion/collapse, mobile width, historical separation and no private backend requests. Its `synthetic-workspace-browser` artifact contains `case-study-dashboard.png`, `case-study-prospects.png`, `case-study-evaluations.png` and `case-study-history.png`; the reviewed files are copied here with the `demo-` prefix.
 
-![Mobile settings with synthetic active and closed seasons](images/season-settings-mobile.png)
+Earlier full-page private-app test captures remain in `docs/images/` as historical verification assets. They use isolated synthetic providers and unchanged authorization, from [Phase 6 verification 35296252994](https://github.com/samhillalston-sha/Blueprint-Recruitment/actions/runs/35296252994), commit `4eb339d5e12e2b37b6f67515438d8f31ed5db130`. They do not represent the current compact dashboard.

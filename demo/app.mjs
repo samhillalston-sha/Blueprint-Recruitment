@@ -4,14 +4,22 @@ const escape=value=>String(value??'Not set').replace(/[&<>"']/g,char=>({'&':'&am
 const record=person=>person.seasons.find(row=>row.year===year);
 const link=person=>`<a href="#prospect/${person.id}">${escape(person.name)}</a>`;
 const people=()=>data.prospects.filter(person=>record(person));
-const panel=(title,body,caption='')=>`<section class="panel"><div class="heading"><h2>${title}</h2><span>${caption}</span></div>${body}</section>`;
+const panel=(title,body,caption='',classes='')=>`<section class="panel ${classes}"><div class="heading"><h2>${title}</h2><span>${caption}</span></div>${body}</section>`;
 const field=(label,value)=>`<div><dt>${label}</dt><dd>${escape(value)}</dd></div>`;
 const heading=(title,subtitle)=>`<span class="eyebrow">BLUEPRINT RECRUITING / DEMO</span><h1>${title}</h1><p class="subtitle">${subtitle}</p>`;
-const queue=(title,rows)=>panel(title,rows.length?rows.map(person=>`<div class="row"><div>${link(person)}<p>${escape(record(person).stage)} · ${escape(record(person).nextAction??'No next action')}</p></div><span class="muted">${escape(record(person).followUp??'Unscheduled')}</span></div>`).join(''):'<p class="empty">None in this sample.</p>',rows.length+' prospects');
+function dueLabel(date){
+ const days=Math.round((Date.parse(date+'T00:00:00Z')-Date.parse(data.today+'T00:00:00Z'))/86400000);
+ return days===0?'Due today':days<0?`${-days} ${days===-1?'day':'days'} overdue`:days===1?'Due tomorrow':`Due in ${days} days`;
+}
+function queue(title,rows,compact=false){
+ const row=person=>compact?`<li class="follow-up-row"><div><a title="${escape(person.name)}" href="#prospect/${person.id}">${escape(person.name)}</a><time datetime="${record(person).followUp}" title="${record(person).followUp}" class="due-badge ${record(person).followUp<data.today?'overdue':''}">${dueLabel(record(person).followUp)}</time></div><p title="${escape(record(person).nextAction?.trim()||'No next action set')}">${escape(record(person).nextAction?.trim()||'No next action set')}</p></li>`:`<div class="row"><div>${link(person)}<p>${escape(record(person).stage)} · ${escape(record(person).nextAction??'No next action')}</p></div><span class="muted">${escape(record(person).followUp??'Unscheduled')}</span></div>`;
+ const body=!rows.length?'<p class="empty">None in this sample.</p>':compact?`<ul class="follow-up-list">${rows.slice(0,3).map(row).join('')}</ul>${rows.length>3?`<details><summary><span class="view-all">View all ${rows.length}</span><span class="show-fewer">Show fewer</span><span class="sr-only"> ${title.toLowerCase()}</span></summary><ul class="follow-up-list">${rows.slice(3).map(row).join('')}</ul></details>`:''}`:rows.map(row).join('');
+ return panel(title,body,compact?String(rows.length):rows.length+' prospects',compact?'follow-up-card':'');
+}
 function dashboard(){
  const rows=people();const filter=fn=>rows.filter(person=>fn(record(person)));
  const metrics=data.stages.map(stage=>`<div class="metric"><p>${stage}</p><strong>${filter(row=>row.stage===stage).length}</strong><p>${year} recruiting season</p></div>`).join('');
- return heading('Build the next chapter.',`Recruiting at a glance for ${year}. ${year===2026?'Historical sample · Read-only.':'Sample dates use January 15, 2027.'}`)+`<div class="metrics">${metrics}</div><div class="grid">${queue('Overdue follow-ups',filter(row=>row.followUp&&row.followUp<data.today))}${queue('Upcoming follow-ups',filter(row=>row.followUp&&row.followUp>=data.today))}${queue('Missing owners',filter(row=>!row.owner))}${queue('Missing next actions',filter(row=>!row.nextAction?.trim()))}</div>`+panel('Recent activity',`<div class="content timeline"><p><strong>Illustrative activity</strong> · ${escape(data.leaders[1])} · ${year} Season</p><p>Follow-up date: Not set → ${year}-01-18</p><p class="muted">This is invented sample activity, not a production audit event.</p></div>`);
+ return heading('Build the next chapter.',`Recruiting at a glance for ${year}. ${year===2026?'Historical sample · Read-only.':'Sample dates use January 15, 2027.'}`)+`<div class="metrics">${metrics}</div><div class="grid">${queue('Overdue follow-ups',filter(row=>row.followUp&&row.followUp<data.today),true)}${queue('Upcoming follow-ups',filter(row=>row.followUp&&row.followUp>=data.today),true)}${queue('Missing owners',filter(row=>!row.owner))}${queue('Missing next actions',filter(row=>!row.nextAction?.trim()))}</div>`+panel('Recent activity',`<div class="content timeline"><p><strong>Illustrative activity</strong> · ${escape(data.leaders[1])} · ${year} Season</p><p>Follow-up date: Not set → ${year}-01-18</p><p class="muted">This is invented sample activity, not a production audit event.</p></div>`);
 }
 function prospectList(query=''){
  const rows=people().filter(person=>person.name.toLowerCase().includes(query.toLowerCase()));

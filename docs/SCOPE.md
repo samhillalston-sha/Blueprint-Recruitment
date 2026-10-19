@@ -25,6 +25,8 @@ The user confirmed the deployed prospect screens after merging Phase 2.
 
 ## Phase 4 — merged dashboard
 
+The dashboard's overdue and upcoming cards now start with three compact rows. Each row has a UTC-relative due badge and a single-line next action. View all expands the rest of the current ten-row page and its pagination; later pages open expanded. Exact totals, selected-season context, and the full prospect record remain available. This presentation update changes no stored workflow or access policy.
+
 - Real stage counts and independently paginated operational queues, ten rows per page with exact totals.
 - Overdue follow-ups have dates before today; upcoming includes today and all later dates. All comparisons use the database's UTC calendar date in one consistent snapshot. Unscheduled prospects appear in neither date queue.
 - Missing owners means no assignment, without clearing revoked owners. Missing next actions includes null, empty and whitespace-only text.

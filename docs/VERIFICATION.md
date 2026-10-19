@@ -142,3 +142,13 @@ The read-only production smoke command passed against [blueprint-recruitment.ver
 Security advisors retain the existing [leaked-password warning](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection) and the intentional [RLS-without-policy information](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy) for the fully revoked private import-receipt table. Performance advisors report retained [unused-index information](https://supabase.com/docs/guides/database/database-linter?lint=0005_unused_index). No schema change or new security finding was introduced.
 
 The Phase 8 pull request records final hosted browser and Vercel preview results. Production and preview checks remain read-only; private production records and screens are never inspected or captured.
+
+## Compact dashboard — October 19, 2026
+
+Production follow-up cards now preview three compact rows, relative UTC due badges and one-line next actions. Native disclosures expose the rest of each ten-row page and its pagination; later pages open expanded. Totals and seasonal selection remain unchanged, and no database migration or production record write is involved.
+
+Local checks passed: 41 unit tests, typecheck, clean production build and 43 native runtime tests. [Production browser run 39274556505](https://github.com/samhillalston-sha/Blueprint-Recruitment/actions/runs/39274556505) passed all 49 runtime/browser stories with no skips. It verifies three browser-visible rows, expansion to ten, pagination, date boundaries, historical context, mobile width, empty states and provider errors. The initial visibility assertion was corrected to use browser visibility rather than layout-box height, since Chromium can retain boxes for closed-disclosure descendants.
+
+The production change was released through [PR #11](https://github.com/samhillalston-sha/Blueprint-Recruitment/pull/11), merge commit `0e8a6f103fd5c69f7b61ac882f4d423fc9040527`. Its Vercel deployment status passed. Authenticated dashboard behavior is verified against isolated synthetic providers; live smoke checks remain anonymous and read-only.
+
+The matching static-demo regression and portfolio captures come from [run 39274711544](https://github.com/samhillalston-sha/Blueprint-Recruitment/actions/runs/39274711544), with all 49 runtime/browser stories passing. It checks disclosure behavior, mobile width, fictional data and absence of Auth/database requests. Selected captures were visually reviewed before adding them to the case study; provenance and regeneration details are in [Screenshots](SCREENSHOTS.md).

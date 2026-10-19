@@ -15,7 +15,7 @@ Product owner: Sam Alston, NYC Blueprint captain. Implementation assistance: Cod
 - **Private leadership access:** individual Google sign-in, manual approval and server-verified authorization. New accounts are inactive by default.
 - **Prospect database:** persistent player profiles, search, pagination, creation/editing and duplicate-name warnings.
 - **Seasonal workflow:** separate stages, priorities, owners, next actions, follow-up dates and qualitative three-year projections for every season.
-- **Operational dashboard:** stage totals, overdue and upcoming follow-ups, missing owners, missing actions and recent activity.
+- **Operational dashboard:** stage totals, compact three-row follow-up previews with relative due-date badges and expandable full queues, missing owners, missing actions and recent activity.
 - **Evaluations:** six 1–5 or N/A attributes, one evaluation per leader, author-only editing, attribute averages and evaluator comparison.
 - **Historical continuity:** optional season outcomes, read-only closed seasons, previous-season context and reuse of the same person in a later season with fresh workflow.
 - **Trusted activity:** important changes are logged automatically with actor, timestamp and before/after values in the same database transaction.
@@ -40,7 +40,7 @@ See [Architecture](docs/ARCHITECTURE.md) for the full data model, trust boundari
 
 The completed system is covered across application, database, browser and deployment layers:
 
-- 40 unit tests.
+- 41 unit tests.
 - 49 production-runtime and hydrated-browser tests with zero failures or skips in the final hosted run.
 - Phase 1–7 hosted Supabase permission and data-isolation regressions using rollback-only synthetic fixtures.
 - Desktop and mobile checks for the private workflow, dashboard, evaluations, continuity, login, empty states, error states and demo.
