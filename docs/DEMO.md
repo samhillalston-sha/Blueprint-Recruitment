@@ -4,6 +4,8 @@ The demo is an independently runnable, read-only static environment. It displays
 
 `demo/data.mjs` is its only data source. `demo/app.mjs`, `demo/style.css` and `demo/index.html` render dashboard counts, sample queues, searchable prospects, profile/evaluator comparisons and seasonal navigation. All dates use January 15, 2027 as the fixed sample day, so the story is reproducible. Activity is explicitly illustrative. The demo has no save, import, login or write endpoint.
 
+Overdue and upcoming follow-ups mirror the compact production cards: three rows initially, a relative UTC date badge, one line of next action, and a keyboard-accessible View all / Show fewer disclosure. Counts always include the whole selected-season queue. Open a prospect to read its full next action and exact date; the exact date is also available on the date badge. The standalone sample fits each complete queue in its disclosure; production retains ten-row pagination inside the expanded queue.
+
 Build and run it alone:
 
 ```sh
