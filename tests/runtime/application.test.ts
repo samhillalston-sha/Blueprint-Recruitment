@@ -669,9 +669,9 @@ test("hydrated dashboard navigates queues and historical context without mobile 
   await browser("cookies","set",cookie.slice(0,separator),cookie.slice(separator+1),"--url",appOrigin);
   await browser("open",appOrigin+"/dashboard?season=2027");await browser("wait",'section[id="overdue"]');
   const initial=await browser("snapshot");for(const title of ["Overdue follow-ups","Upcoming follow-ups","Missing owners","Missing next actions","Recent activity","Due today"])assert.ok(initial.includes(title),title);
-  assert.equal(JSON.parse(await browser("eval","Array.from(document.querySelectorAll('#overdue li')).filter(row=>row.getBoundingClientRect().height>0).length","--json")).data.result,3);
+  assert.equal(JSON.parse(await browser("eval","Array.from(document.querySelectorAll('#overdue li')).filter(row=>row.checkVisibility()).length","--json")).data.result,3);
   await browser("click",'#overdue summary');
-  assert.equal(JSON.parse(await browser("eval","Array.from(document.querySelectorAll('#overdue li')).filter(row=>row.getBoundingClientRect().height>0).length","--json")).data.result,10);
+  assert.equal(JSON.parse(await browser("eval","Array.from(document.querySelectorAll('#overdue li')).filter(row=>row.checkVisibility()).length","--json")).data.result,10);
   await browser("click",'#overdue summary');
   await browser("screenshot",resolve(".qa/phase4-dashboard-desktop.png"),"--full");assert.ok((await stat(".qa/phase4-dashboard-desktop.png")).size>0);
   await browser("click",'#overdue summary');
