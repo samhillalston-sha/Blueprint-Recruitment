@@ -7,6 +7,12 @@ export type DashboardRow = { id: string; prospect_id: string; full_name: string;
 export type DashboardPage<T> = { count: number; page: number; rows: T[] };
 export type DashboardActivity = Pick<Activity, "id" | "season_id" | "actor_name" | "event_type" | "created_at"> & { prospect_id: string; full_name: string };
 export type RecruitingDashboard = { today: string; stages: number[]; queues: Record<Exclude<DashboardKey,"activity">,DashboardPage<DashboardRow>>; activity: DashboardPage<DashboardActivity> };
+export function followUpLabel(date: string, today: string) {
+ const days = Math.round((Date.parse(date + "T00:00:00Z") - Date.parse(today + "T00:00:00Z")) / 86400000);
+ if (days === 0) return "Due today";
+ if (days < 0) return `${-days} ${days === -1 ? "day" : "days"} overdue`;
+ return days === 1 ? "Due tomorrow" : `Due in ${days} days`;
+}
 export function dashboardPage(value: string | string[] | undefined) {
  return typeof value === "string" && /^[0-9]{1,6}$/.test(value) ? Math.max(1,Number(value)) : 1;
 }

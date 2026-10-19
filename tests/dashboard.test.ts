@@ -1,6 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dashboardPage, dashboardHref } from "../src/lib/dashboard-policy";
+import { dashboardPage, dashboardHref, followUpLabel } from "../src/lib/dashboard-policy";
+
+test("compact follow-up labels compare UTC dates across month and leap-year boundaries",()=>{
+ assert.equal(followUpLabel("2027-01-15","2027-01-15"),"Due today");
+ assert.equal(followUpLabel("2027-01-14","2027-01-15"),"1 day overdue");
+ assert.equal(followUpLabel("2027-01-11","2027-01-15"),"4 days overdue");
+ assert.equal(followUpLabel("2027-02-01","2027-01-31"),"Due tomorrow");
+ assert.equal(followUpLabel("2028-03-01","2028-02-28"),"Due in 2 days");
+});
 
 test("dashboard pagination rejects malformed and oversized input",()=>{
  for(const value of [undefined,["2","3"],"-1","2.5","NaN","9999999","1e3"]) assert.equal(dashboardPage(value),1);
