@@ -47,13 +47,6 @@ Qualitative three-year projections describe a player outlook, without promising 
 
 For portfolio sharing, a separate static runtime uses ten invented people and illustrative activity. It has no backend or write endpoint and can run without the private app's credentials. This makes the product understandable without exposing private recruiting records or weakening production access.
 
-## Delivery evidence and current limits
-
-Phase 1 Google sign-in, manual approval and dashboard access were user-confirmed; the Phase 2 deployed prospect screens were also confirmed. Later capabilities are supported by unit/type/build checks, built-app runtime/browser stories and separate hosted Postgres permission tests with rolled-back synthetic fixtures. The linked [verification record](VERIFICATION.md) and PRs distinguish automated checks from actual production-user confirmation.
-
-Phase 7's private import tooling is implemented and tested against ten synthetic rows, including atomic rollback, retry safety and duplicate resolution. **The ten-real-prospect import remains pending because no designated source file or target season was provided.** A test fixture is not counted as a production import.
-
-No measured reduction in recruiting time, adoption increase or improved roster outcome is claimed. The initial implementation establishes the workflow and safety properties; impact needs observation over a recruiting cycle. Useful future measures are the share of prospects with an owner/next action, overdue-follow-up completion, leadership usage and successful reuse of prior-season profiles. Collect them privately before making outcome claims.
 
 ## What this demonstrates
 
